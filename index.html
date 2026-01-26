@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FactuManager Pro - Gestión Total</title>
+    <link rel="stylesheet" href="estilos.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>FactuManager Pro</h1>
+        <div class="top-actions">
+            <button onclick="limpiarTodo()" class="btn-danger">Limpiar Todo</button>
+        </div>
+    </header>
+
+    <nav class="main-nav">
+        <button onclick="showTab('tab-productos')">📦 PRODUCTOS</button>
+        <button onclick="showTab('tab-ventas')">💰 VENTAS</button>
+        <button onclick="showTab('tab-informes')">📋 INFORMES</button>
+    </nav>
+
+    <main>
+        <section id="tab-productos" class="tab-content active">
+            <div class="card">
+                <h3>Cargar Nuevo Producto</h3>
+                <form id="prod-form">
+                    <input type="text" id="p-nombre" placeholder="Nombre (ej: Huevos)" required>
+                    <input type="number" id="p-stock" placeholder="Stock Inicial" required>
+                    <input type="number" id="p-costo" placeholder="Precio Costo ($)" required>
+                    <input type="number" id="p-venta" placeholder="Precio Venta ($)" required>
+                    <button type="submit">Guardar en Inventario</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>📦 Inventario Actual</h3>
+                <table id="tabla-productos">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Stock</th>
+                            <th>P. Venta</th>
+                            <th>Ganancia</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-ventas" class="tab-content">
+            <div class="card">
+                <h3>Registrar Venta</h3>
+                <form id="venta-form">
+                    <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
+                    <input type="number" id="v-cantidad" placeholder="Cantidad" oninput="actualizarTotalVenta()" required>
+                    <select id="v-pago">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                    <h2 id="display-total">Total: $0</h2>
+                    <button type="submit" class="btn-success">Confirmar Venta</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>📄 Historial de Ventas</h3>
+                <table id="tabla-ventas">
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Producto</th>
+                            <th>Cant.</th>
+                            <th>Total</th>
+                            <th>Pago</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-informes" class="tab-content">
+            <div class="card" style="text-align: center;">
+                <h3>Generar Reporte General</h3>
+                <p>Se descargará un PDF con el estado del stock y las ventas realizadas.</p>
+                <button onclick="descargarPDF()" class="btn-pdf">DESCARGAR PDF</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
