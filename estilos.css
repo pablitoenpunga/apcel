@@ -1,7 +1,7 @@
 :root {
     --primary: #1e3799; --secondary: #4a69bd; --success: #079992;
-    --danger: #eb2f06; --bg: #f1f2f6; --white: #ffffff;
-    --text: #2f3542; --text-light: #747d8c; --radius: 16px;
+    --warning: #f39c12; --danger: #eb2f06; --bg: #f1f2f6; 
+    --white: #ffffff; --text: #2f3542; --text-light: #747d8c; --radius: 16px;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -14,10 +14,11 @@ header h1 { font-size: 1.1rem; margin: 0; color: var(--primary); font-weight: 80
 .card { background: var(--white); margin: 15px; padding: 20px; border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 600px; }
 
 .input-group { display: flex; gap: 10px; }
-input, select { width: 100%; padding: 14px; margin-bottom: 10px; border: 1.5px solid #f1f2f6; border-radius: 12px; font-size: 16px; }
+input, select { width: 100%; padding: 14px; margin-bottom: 10px; border: 1.5px solid #f1f2f6; border-radius: 12px; font-size: 16px; outline: none; }
 
 .btn-primary { background: var(--primary); color: white; width: 100%; padding: 16px; font-weight: 700; border: none; border-radius: 12px; }
 .btn-success { background: var(--success); color: white; width: 100%; padding: 16px; font-weight: 700; border: none; border-radius: 12px; }
+.btn-warning { background: var(--warning); color: white; width: 100%; padding: 16px; font-weight: 700; border: none; border-radius: 12px; }
 .btn-pdf { background: var(--text); color: white; width: 100%; padding: 16px; margin-top: 15px; font-weight: 700; border: none; border-radius: 12px; }
 .btn-del { background: #fff1f0; color: var(--danger); padding: 8px 12px; font-size: 0.8rem; border-radius: 8px; border: none; }
 
@@ -29,20 +30,18 @@ table { width: 100%; border-collapse: collapse; }
 th { text-align: left; padding: 10px; color: var(--text-light); font-size: 0.7rem; border-bottom: 1px solid #f1f2f6; }
 td { padding: 12px 10px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem; }
 
-/* Ganancia resaltada */
 .badge-ganancia { color: var(--success); font-weight: 700; }
-
 .low-stock-row { background-color: #fff5f5 !important; }
 .low-stock-row td:nth-child(2) { color: var(--danger) !important; font-weight: 800; }
 
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .stat-box { background: #f8f9fa; padding: 15px; border-radius: 12px; text-align: center; }
-.stat-box p { margin: 5px 0 0; font-size: 1.2rem; font-weight: 800; color: var(--success); }
+.stat-box p { margin: 5px 0 0; font-size: 1.1rem; font-weight: 800; color: var(--success); }
 
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; padding: 12px 0 30px; border-top: 1px solid #eee; }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; padding: 10px 0 25px; border-top: 1px solid #eee; }
 .nav-item { background: none; display: flex; flex-direction: column; align-items: center; color: var(--text-light); flex: 1; border: none; }
 .nav-item.active { color: var(--primary); }
-.nav-label { font-size: 0.65rem; font-weight: 600; margin-top: 4px; }
+.nav-label { font-size: 0.6rem; font-weight: 600; margin-top: 4px; }
 
 .tab-panel { display: none; }
 .tab-panel.active { display: block; animation: slideUp 0.3s ease-out; }
