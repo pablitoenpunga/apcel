@@ -13,10 +13,8 @@
 
     <header>
         <div class="header-inner">
-            <div class="brand">
-                <h1>FactuManager <span>PRO</span></h1>
-            </div>
-            <button onclick="limpiarTodo()" class="btn-clear-all" title="Reiniciar Sistema">♻️</button>
+            <h1>FactuManager <span>PRO</span></h1>
+            <button onclick="limpiarTodo()" class="btn-clear-all">♻️</button>
         </div>
     </header>
 
@@ -25,7 +23,7 @@
             <div class="card form-card">
                 <h3>📦 Nuevo Producto</h3>
                 <form id="prod-form">
-                    <input type="text" id="p-nombre" placeholder="Nombre (ej: Maple de Huevos)" required>
+                    <input type="text" id="p-nombre" placeholder="Nombre (ej: Huevos)" required>
                     <div class="input-group">
                         <input type="number" id="p-stock" placeholder="Stock" required>
                         <input type="number" id="p-minimo" placeholder="Aviso Mínimo" value="10" required>
@@ -43,12 +41,7 @@
                 <div class="scrollable">
                     <table id="tabla-productos">
                         <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Stock</th>
-                                <th>Venta</th>
-                                <th></th>
-                            </tr>
+                            <tr><th>Item</th><th>Stock</th><th>Venta</th><th></th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>
@@ -62,30 +55,23 @@
                 <form id="venta-form">
                     <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
                     <div class="input-group">
-                        <input type="number" id="v-cantidad" placeholder="Cantidad" oninput="actualizarTotalVenta()" required>
+                        <input type="number" id="v-cantidad" placeholder="Cant." oninput="actualizarTotalVenta()" required>
                         <select id="v-pago">
                             <option value="Efectivo">Efectivo</option>
                             <option value="Transferencia">Transferencia</option>
                         </select>
                     </div>
-                    <div class="total-container">
-                        <span id="display-total">Total: $0.00</span>
-                    </div>
+                    <div class="total-container"><span id="display-total">Total: $0.00</span></div>
                     <button type="submit" class="btn-success">Confirmar Venta</button>
                 </form>
             </div>
 
             <div class="card table-card">
-                <h3>🕒 Historial Reciente</h3>
+                <h3>🕒 Últimas Ventas</h3>
                 <div class="scrollable">
                     <table id="tabla-ventas">
                         <thead>
-                            <tr>
-                                <th>Hora</th>
-                                <th>Producto</th>
-                                <th>Total</th>
-                                <th></th>
-                            </tr>
+                            <tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>
@@ -97,14 +83,8 @@
             <div class="card report-card">
                 <h3>📈 Resumen de Caja</h3>
                 <div class="stats-grid">
-                    <div class="stat-box">
-                        <label>Ventas Hoy</label>
-                        <p id="stat-dia">$0</p>
-                    </div>
-                    <div class="stat-box">
-                        <label>Ventas Mes</label>
-                        <p id="stat-mes">$0</p>
-                    </div>
+                    <div class="stat-box"><label>Hoy</label><p id="stat-dia">$0</p></div>
+                    <div class="stat-box"><label>Mes</label><p id="stat-mes">$0</p></div>
                 </div>
                 <button onclick="descargarPDF()" class="btn-pdf">Descargar Informe PDF</button>
             </div>
@@ -113,16 +93,13 @@
 
     <nav class="bottom-nav">
         <button onclick="showTab('tab-productos')" class="nav-item active">
-            <span class="nav-icon">📦</span>
-            <span class="nav-label">Stock</span>
+            <span class="nav-icon">📦</span><span class="nav-label">Stock</span>
         </button>
         <button onclick="showTab('tab-ventas')" class="nav-item">
-            <span class="nav-icon">💰</span>
-            <span class="nav-label">Venta</span>
+            <span class="nav-icon">💰</span><span class="nav-label">Venta</span>
         </button>
         <button onclick="showTab('tab-informes')" class="nav-item">
-            <span class="nav-icon">📊</span>
-            <span class="nav-label">Caja</span>
+            <span class="nav-icon">📊</span><span class="nav-label">Caja</span>
         </button>
     </nav>
 
