@@ -1,27 +1,32 @@
-let productos = JSON.parse(localStorage.getItem('fmp_items')) || [];
-let ventas = JSON.parse(localStorage.getItem('fmp_sales')) || [];
+let productos = JSON.parse(localStorage.getItem('factu_pro_data')) || [];
+let ventas = JSON.parse(localStorage.getItem('factu_pro_sales')) || [];
 
 function render() {
-    // 1. Inventario con Alerta
+    // 1. Tabla de Productos
     const tbodyP = document.querySelector('#tabla-productos tbody');
     tbodyP.innerHTML = '';
     productos.forEach(p => {
-        const esCritico = p.stock <= (p.minimo || 10);
+        const esBajo = p.stock <= (p.minimo || 10);
         tbodyP.innerHTML += `
-            <tr class="${esCritico ? 'low-stock-row' : ''}">
-                <td>${p.nombre} ${esCritico ? '⚠️' : ''}</td>
+            <tr class="${esBajo ? 'low-stock-row' : ''}">
+                <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
                 <td>${p.stock}</td>
                 <td>$${p.venta}</td>
                 <td><button onclick="borrarP(${p.id})" class="btn-del">X</button></td>
             </tr>`;
     });
 
-    // 2. Historial
+    // 2. Tabla de Ventas (últimas 10)
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     tbodyV.innerHTML = '';
     [...ventas].reverse().slice(0, 10).forEach((v, i) => {
         tbodyV.innerHTML += `
-            <tr><td>${v.hora}</td><td>${v.nombre}</td><td>$${v.total}</td><td><button onclick="anularV(${ventas.length-1-i})" class="btn-del">↩</button></td></tr>`;
+            <tr>
+                <td>${v.hora}</td>
+                <td>${v.nombre}</td>
+                <td>$${v.total}</td>
+                <td><button onclick="anularV(${ventas.length - 1 - i})" class="btn-del">↩</button></td>
+            </tr>`;
     });
 
     actualizarSelectores();
@@ -29,8 +34,9 @@ function render() {
 }
 
 function actualizarDashboard() {
-    const hoyStr = new Date().toLocaleDateString();
-    const mesActual = new Date().getMonth();
+    const ahora = new Date();
+    const hoyStr = ahora.toLocaleDateString();
+    const mesActual = ahora.getMonth();
     
     const totalDia = ventas.filter(v => v.fecha === hoyStr).reduce((s, v) => s + v.total, 0);
     const totalMes = ventas.filter(v => {
@@ -44,9 +50,10 @@ function actualizarDashboard() {
 }
 
 function actualizarTotalVenta() {
-    const p = productos.find(x => x.id == document.getElementById('v-producto').value);
-    const c = document.getElementById('v-cantidad').value;
-    document.getElementById('display-total').innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
+    const id = document.getElementById('v-producto').value;
+    const cant = document.getElementById('v-cantidad').value;
+    const prod = productos.find(x => x.id == id);
+    document.getElementById('display-total').innerText = (prod && cant > 0) ? `Total: $${(prod.venta * cant).toLocaleString()}` : "Total: $0.00";
 }
 
 document.getElementById('venta-form').addEventListener('submit', (e) => {
@@ -62,47 +69,76 @@ document.getElementById('venta-form').addEventListener('submit', (e) => {
             nombre: p.nombre, cantidad: c, total: p.venta * c, pago: document.getElementById('v-pago').value
         });
         save(); e.target.reset(); actualizarTotalVenta();
-    } else { alert("Stock insuficiente"); }
+    } else { alert("Stock insuficiente."); }
 });
 
 function descargarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const caja = actualizarDashboard();
-    doc.setFontSize(20); doc.text("Reporte FactuManager Pro", 14, 20);
-    doc.setFontSize(12); doc.text(`TOTAL DÍA: $${caja.totalDia} | TOTAL MES: $${caja.totalMes}`, 14, 30);
+
+    doc.setFontSize(20);
+    doc.setTextColor(30, 55, 153);
+    doc.text("Reporte de Caja - FactuManager Pro", 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(40);
+    doc.text(`Ventas del Día: $${caja.totalDia.toLocaleString()}`, 14, 30);
+    doc.text(`Ventas del Mes: $${caja.totalMes.toLocaleString()}`, 14, 38);
+
     doc.autoTable({
-        startY: 40, head: [['Hora', 'Producto', 'Cant', 'Total']],
-        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, `$${v.total}`])
+        startY: 45,
+        head: [['Hora', 'Producto', 'Cant', 'Total']],
+        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, `$${v.total}`]),
+        headStyles: { fillColor: [30, 55, 153] }
     });
-    doc.save("Reporte.pdf");
+
+    doc.save(`Reporte_${new Date().toLocaleDateString()}.pdf`);
 }
 
-function save() { localStorage.setItem('fmp_items', JSON.stringify(productos)); localStorage.setItem('fmp_sales', JSON.stringify(ventas)); render(); }
+function save() { 
+    localStorage.setItem('factu_pro_data', JSON.stringify(productos)); 
+    localStorage.setItem('factu_pro_sales', JSON.stringify(ventas)); 
+    render(); 
+}
+
 function showTab(id) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    document.getElementById(id).classList.add('active'); event.currentTarget.classList.add('active');
+    document.getElementById(id).classList.add('active');
+    event.currentTarget.classList.add('active');
 }
-function borrarP(id) { if(confirm("¿Borrar?")) { productos = productos.filter(x => x.id !== id); save(); } }
-function anularV(idx) {
-    const v = ventas[idx]; const p = productos.find(x => x.id == v.idProd);
-    if(p) p.stock += v.cantidad; ventas.splice(idx, 1); save();
-}
-function actualizarSelectores() {
-    const s = document.getElementById('v-producto'); const val = s.value;
-    s.innerHTML = '<option value="">Seleccione Producto...</option>';
-    productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (Dispo: ${p.stock})</option>`);
-    s.value = val;
-}
+
 document.getElementById('prod-form').addEventListener('submit', (e) => {
     e.preventDefault();
     productos.push({
-        id: Date.now(), nombre: document.getElementById('p-nombre').value,
-        stock: parseInt(document.getElementById('p-stock').value), minimo: parseInt(document.getElementById('p-minimo').value),
-        costo: parseFloat(document.getElementById('p-costo').value), venta: parseFloat(document.getElementById('p-venta').value)
+        id: Date.now(),
+        nombre: document.getElementById('p-nombre').value,
+        stock: parseInt(document.getElementById('p-stock').value),
+        minimo: parseInt(document.getElementById('p-minimo').value),
+        costo: parseFloat(document.getElementById('p-costo').value),
+        venta: parseFloat(document.getElementById('p-venta').value)
     });
     save(); e.target.reset();
 });
-function limpiarTodo() { if(confirm("¿Resetear todo?")) { localStorage.clear(); location.reload(); } }
+
+function borrarP(id) { if(confirm("¿Borrar producto?")) { productos = productos.filter(x => x.id !== id); save(); } }
+function anularV(idx) {
+    const v = ventas[idx];
+    const p = productos.find(x => x.id == v.idProd);
+    if(p) p.stock += v.cantidad;
+    ventas.splice(idx, 1);
+    save();
+}
+
+function actualizarSelectores() {
+    const s = document.getElementById('v-producto');
+    const val = s.value;
+    s.innerHTML = '<option value="">Seleccione Producto...</option>';
+    productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`);
+    s.value = val;
+}
+
+function limpiarTodo() { if(confirm("¿Reiniciar todo el sistema?")) { localStorage.clear(); location.reload(); } }
+
 render();
