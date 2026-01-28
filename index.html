@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FactuManager Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3799">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1052/1052856.png">
+
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="estilos.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -35,14 +43,11 @@
                     <button type="submit" class="btn-primary">Guardar Producto</button>
                 </form>
             </div>
-
             <div class="card table-card">
                 <h3>📊 Inventario</h3>
                 <div class="scrollable">
                     <table id="tabla-productos">
-                        <thead>
-                            <tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr>
-                        </thead>
+                        <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -56,23 +61,17 @@
                     <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
                     <div class="input-group">
                         <input type="number" id="v-cantidad" placeholder="Cant." oninput="actualizarTotalVenta()" required>
-                        <select id="v-pago">
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia">Transferencia</option>
-                        </select>
+                        <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
                     </div>
                     <div class="total-container"><span id="display-total">Total: $0.00</span></div>
                     <button type="submit" class="btn-success">Confirmar Venta</button>
                 </form>
             </div>
-
             <div class="card table-card">
                 <h3>🕒 Últimas Ventas</h3>
                 <div class="scrollable">
                     <table id="tabla-ventas">
-                        <thead>
-                            <tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr>
-                        </thead>
+                        <thead><tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -92,15 +91,9 @@
     </main>
 
     <nav class="bottom-nav">
-        <button onclick="showTab('tab-productos')" class="nav-item active">
-            <span class="nav-icon">📦</span><span class="nav-label">Stock</span>
-        </button>
-        <button onclick="showTab('tab-ventas')" class="nav-item">
-            <span class="nav-icon">💰</span><span class="nav-label">Venta</span>
-        </button>
-        <button onclick="showTab('tab-informes')" class="nav-item">
-            <span class="nav-icon">📊</span><span class="nav-label">Caja</span>
-        </button>
+        <button onclick="showTab('tab-productos')" class="nav-item active"><span class="nav-icon">📦</span><span class="nav-label">Stock</span></button>
+        <button onclick="showTab('tab-ventas')" class="nav-item"><span class="nav-icon">💰</span><span class="nav-label">Venta</span></button>
+        <button onclick="showTab('tab-informes')" class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">Caja</span></button>
     </nav>
 
     <script src="script.js"></script>
