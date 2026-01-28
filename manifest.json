@@ -1,0 +1,16 @@
+{
+  "name": "FactuManager Pro",
+  "short_name": "FactuPro",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f1f2f6",
+  "theme_color": "#1e3799",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1052/1052856.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
