@@ -36,6 +36,7 @@ td { padding: 12px 10px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem; }
 
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .stat-box { background: #f8f9fa; padding: 15px; border-radius: 12px; text-align: center; }
+.stat-box label { font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; }
 .stat-box p { margin: 5px 0 0; font-size: 1.1rem; font-weight: 800; color: var(--success); }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; padding: 10px 0 25px; border-top: 1px solid #eee; }

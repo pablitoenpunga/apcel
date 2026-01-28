@@ -1,7 +1,6 @@
-// Bases de datos unificadas
-let productos = JSON.parse(localStorage.getItem('gya_pro_items_v5')) || [];
-let ventas = JSON.parse(localStorage.getItem('gya_pro_sales_v5')) || [];
-let gastos = JSON.parse(localStorage.getItem('gya_pro_expenses_v5')) || [];
+let productos = JSON.parse(localStorage.getItem('gya_pro_items_v6')) || [];
+let ventas = JSON.parse(localStorage.getItem('gya_pro_sales_v6')) || [];
+let gastos = JSON.parse(localStorage.getItem('gya_pro_expenses_v6')) || [];
 
 function render() {
     // 1. Inventario
@@ -55,54 +54,57 @@ function actualizarDashboard() {
     return { netoDia: vDia - gDia, netoMes: vMes - gMes };
 }
 
-// Lógica de Gastos
-document.getElementById('gasto-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const ahora = new Date();
-    gastos.push({
-        motivo: document.getElementById('g-descripcion').value,
-        monto: parseFloat(document.getElementById('g-monto').value),
-        fechaStr: ahora.toLocaleDateString(),
-        mes: ahora.getMonth(),
-        anio: ahora.getFullYear(),
-        hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-    });
-    save(); e.target.reset();
-});
+// ARREGLO PARA GASTOS: e.preventDefault() evita que la página se recargue
+const formGasto = document.getElementById('gasto-form');
+if(formGasto) {
+    formGasto.addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        const ahora = new Date();
+        const monto = parseFloat(document.getElementById('g-monto').value);
+        const motivo = document.getElementById('g-descripcion').value;
 
-// Ventas y más...
-document.getElementById('venta-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const p = productos.find(x => x.id == document.getElementById('v-producto').value);
-    const c = parseInt(document.getElementById('v-cantidad').value);
-    if (p && p.stock >= c) {
-        const t = new Date();
-        p.stock -= c;
-        ventas.push({
-            idProd: p.id, fechaStr: t.toLocaleDateString(), mes: t.getMonth(), anio: t.getFullYear(),
-            hora: t.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            nombre: p.nombre, cantidad: c, total: p.venta * c, pago: document.getElementById('v-pago').value
-        });
-        save(); e.target.reset();
-    } else { alert("Sin stock"); }
-});
-
-function descargarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const b = actualizarDashboard();
-    doc.text("GestionYa PRO - Cierre de Caja", 14, 20);
-    doc.text(`Balance Neto Hoy: $${b.netoDia}`, 14, 30);
-    doc.autoTable({ startY: 40, head: [['Hora', 'Tipo', 'Monto']], 
-        body: [ ...ventas.map(v => [v.hora, 'Venta: '+v.nombre, '$'+v.total]), ...gastos.map(g => [g.hora, 'GASTO: '+g.motivo, '-$'+g.monto]) ] 
+        if(!isNaN(monto) && motivo !== "") {
+            gastos.push({
+                motivo: motivo,
+                monto: monto,
+                fechaStr: ahora.toLocaleDateString(),
+                mes: ahora.getMonth(),
+                anio: ahora.getFullYear(),
+                hora: ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            });
+            save(); 
+            this.reset();
+            alert("Gasto registrado correctamente");
+        }
     });
-    doc.save("Cierre_Caja.pdf");
+}
+
+// ARREGLO PARA VENTAS
+const formVenta = document.getElementById('venta-form');
+if(formVenta) {
+    formVenta.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const p = productos.find(x => x.id == document.getElementById('v-producto').value);
+        const c = parseInt(document.getElementById('v-cantidad').value);
+        if (p && p.stock >= c) {
+            const t = new Date();
+            p.stock -= c;
+            ventas.push({
+                idProd: p.id, fechaStr: t.toLocaleDateString(), mes: t.getMonth(), anio: t.getFullYear(),
+                hora: t.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                nombre: p.nombre, cantidad: c, total: p.venta * c, pago: document.getElementById('v-pago').value
+            });
+            save(); 
+            this.reset();
+            document.getElementById('display-total').innerText = "Total: $0.00";
+        } else { alert("Sin stock suficiente"); }
+    });
 }
 
 function save() { 
-    localStorage.setItem('gya_pro_items_v5', JSON.stringify(productos)); 
-    localStorage.setItem('gya_pro_sales_v5', JSON.stringify(ventas)); 
-    localStorage.setItem('gya_pro_expenses_v5', JSON.stringify(gastos)); 
+    localStorage.setItem('gya_pro_items_v6', JSON.stringify(productos)); 
+    localStorage.setItem('gya_pro_sales_v6', JSON.stringify(ventas)); 
+    localStorage.setItem('gya_pro_expenses_v6', JSON.stringify(gastos)); 
     render(); 
 }
 
@@ -110,10 +112,25 @@ function showTab(id) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    event.currentTarget.classList.add('active');
+    // Para que funcione en Android/iPhone sin errores:
+    const clickedBtn = [...document.querySelectorAll('.nav-item')].find(btn => btn.getAttribute('onclick').includes(id));
+    if(clickedBtn) clickedBtn.classList.add('active');
 }
 
-function borrarP(id) { if(confirm("¿Eliminar?")) { productos = productos.filter(x => x.id !== id); save(); } }
+document.getElementById('prod-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    productos.push({
+        id: Date.now(),
+        nombre: document.getElementById('p-nombre').value,
+        stock: parseInt(document.getElementById('p-stock').value),
+        minimo: parseInt(document.getElementById('p-minimo').value),
+        costo: parseFloat(document.getElementById('p-costo').value),
+        venta: parseFloat(document.getElementById('p-venta').value)
+    });
+    save(); this.reset();
+});
+
+function borrarP(id) { if(confirm("¿Eliminar producto?")) { productos = productos.filter(x => x.id !== id); save(); } }
 function borrarGasto(idx) { if(confirm("¿Eliminar gasto?")) { gastos.splice(idx, 1); save(); } }
 function anularV(idx) {
     const v = ventas[idx]; const p = productos.find(x => x.id == v.idProd);
@@ -122,24 +139,31 @@ function anularV(idx) {
 
 function actualizarSelectores() {
     const s = document.getElementById('v-producto');
-    s.innerHTML = '<option value="">Seleccione...</option>';
-    productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (${p.stock})</option>`);
+    if(!s) return;
+    const val = s.value;
+    s.innerHTML = '<option value="">Seleccione Producto...</option>';
+    productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`);
+    s.value = val;
 }
 
-document.getElementById('prod-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    productos.push({
-        id: Date.now(), nombre: document.getElementById('p-nombre').value, stock: parseInt(document.getElementById('p-stock').value),
-        minimo: parseInt(document.getElementById('p-minimo').value), costo: parseFloat(document.getElementById('p-costo').value), venta: parseFloat(document.getElementById('p-venta').value)
-    });
-    save(); e.target.reset();
-});
-
-function limpiarTodo() { if(confirm("¿Reiniciar?")) { localStorage.clear(); location.reload(); } }
 function actualizarTotalVenta() {
     const p = productos.find(x => x.id == document.getElementById('v-producto').value);
     const c = document.getElementById('v-cantidad').value;
     document.getElementById('display-total').innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
 }
+
+function descargarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const b = actualizarDashboard();
+    doc.text("GestionYa PRO - Cierre de Caja", 14, 20);
+    doc.text(`Balance Neto: $${b.netoDia}`, 14, 30);
+    doc.autoTable({ startY: 40, head: [['Hora', 'Tipo', 'Monto']], 
+        body: [ ...ventas.map(v => [v.hora, 'Venta: '+v.nombre, '$'+v.total]), ...gastos.map(g => [g.hora, 'GASTO: '+g.motivo, '-$'+g.monto]) ] 
+    });
+    doc.save("Cierre_Caja.pdf");
+}
+
+function limpiarTodo() { if(confirm("¿Reiniciar sistema?")) { localStorage.clear(); location.reload(); } }
 
 render();
