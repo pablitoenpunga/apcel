@@ -1,22 +1,26 @@
-let productos = JSON.parse(localStorage.getItem('factu_pro_data')) || [];
-let ventas = JSON.parse(localStorage.getItem('factu_pro_sales')) || [];
+let productos = JSON.parse(localStorage.getItem('fmp_data_v4')) || [];
+let ventas = JSON.parse(localStorage.getItem('fmp_sales_v4')) || [];
 
 function render() {
-    // 1. Tabla de Productos
+    // 1. Tabla de Productos con cálculo de ganancia
     const tbodyP = document.querySelector('#tabla-productos tbody');
     tbodyP.innerHTML = '';
     productos.forEach(p => {
         const esBajo = p.stock <= (p.minimo || 10);
+        // Cálculo de % de Ganancia
+        const porcentajeGanancia = (((p.venta - p.costo) / p.costo) * 100).toFixed(0);
+        
         tbodyP.innerHTML += `
             <tr class="${esBajo ? 'low-stock-row' : ''}">
                 <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
                 <td>${p.stock}</td>
                 <td>$${p.venta}</td>
+                <td class="badge-ganancia">${porcentajeGanancia}%</td>
                 <td><button onclick="borrarP(${p.id})" class="btn-del">X</button></td>
             </tr>`;
     });
 
-    // 2. Tabla de Ventas (últimas 10)
+    // 2. Tabla de Ventas
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     tbodyV.innerHTML = '';
     [...ventas].reverse().slice(0, 10).forEach((v, i) => {
@@ -34,10 +38,8 @@ function render() {
 }
 
 function actualizarDashboard() {
-    const ahora = new Date();
-    const hoyStr = ahora.toLocaleDateString();
-    const mesActual = ahora.getMonth();
-    
+    const hoyStr = new Date().toLocaleDateString();
+    const mesActual = new Date().getMonth();
     const totalDia = ventas.filter(v => v.fecha === hoyStr).reduce((s, v) => s + v.total, 0);
     const totalMes = ventas.filter(v => {
         const [, m] = v.fecha.split('/');
@@ -50,10 +52,9 @@ function actualizarDashboard() {
 }
 
 function actualizarTotalVenta() {
-    const id = document.getElementById('v-producto').value;
-    const cant = document.getElementById('v-cantidad').value;
-    const prod = productos.find(x => x.id == id);
-    document.getElementById('display-total').innerText = (prod && cant > 0) ? `Total: $${(prod.venta * cant).toLocaleString()}` : "Total: $0.00";
+    const p = productos.find(x => x.id == document.getElementById('v-producto').value);
+    const c = document.getElementById('v-cantidad').value;
+    document.getElementById('display-total').innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
 }
 
 document.getElementById('venta-form').addEventListener('submit', (e) => {
@@ -76,29 +77,19 @@ function descargarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const caja = actualizarDashboard();
-
-    doc.setFontSize(20);
-    doc.setTextColor(30, 55, 153);
-    doc.text("Reporte de Caja - FactuManager Pro", 14, 20);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(40);
-    doc.text(`Ventas del Día: $${caja.totalDia.toLocaleString()}`, 14, 30);
-    doc.text(`Ventas del Mes: $${caja.totalMes.toLocaleString()}`, 14, 38);
-
+    doc.setFontSize(18); doc.text("Reporte de Caja - FactuManager Pro", 14, 20);
+    doc.setFontSize(11); doc.text(`Ventas Hoy: $${caja.totalDia} | Ventas Mes: $${caja.totalMes}`, 14, 30);
     doc.autoTable({
-        startY: 45,
+        startY: 35,
         head: [['Hora', 'Producto', 'Cant', 'Total']],
-        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, `$${v.total}`]),
-        headStyles: { fillColor: [30, 55, 153] }
+        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, `$${v.total}`])
     });
-
     doc.save(`Reporte_${new Date().toLocaleDateString()}.pdf`);
 }
 
 function save() { 
-    localStorage.setItem('factu_pro_data', JSON.stringify(productos)); 
-    localStorage.setItem('factu_pro_sales', JSON.stringify(ventas)); 
+    localStorage.setItem('fmp_data_v4', JSON.stringify(productos)); 
+    localStorage.setItem('fmp_sales_v4', JSON.stringify(ventas)); 
     render(); 
 }
 
@@ -122,23 +113,19 @@ document.getElementById('prod-form').addEventListener('submit', (e) => {
     save(); e.target.reset();
 });
 
-function borrarP(id) { if(confirm("¿Borrar producto?")) { productos = productos.filter(x => x.id !== id); save(); } }
+function borrarP(id) { if(confirm("¿Eliminar?")) { productos = productos.filter(x => x.id !== id); save(); } }
 function anularV(idx) {
-    const v = ventas[idx];
-    const p = productos.find(x => x.id == v.idProd);
-    if(p) p.stock += v.cantidad;
-    ventas.splice(idx, 1);
-    save();
+    const v = ventas[idx]; const p = productos.find(x => x.id == v.idProd);
+    if(p) p.stock += v.cantidad; ventas.splice(idx, 1); save();
 }
 
 function actualizarSelectores() {
-    const s = document.getElementById('v-producto');
-    const val = s.value;
+    const s = document.getElementById('v-producto'); const val = s.value;
     s.innerHTML = '<option value="">Seleccione Producto...</option>';
     productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`);
     s.value = val;
 }
 
-function limpiarTodo() { if(confirm("¿Reiniciar todo el sistema?")) { localStorage.clear(); location.reload(); } }
+function limpiarTodo() { if(confirm("¿Resetear sistema?")) { localStorage.clear(); location.reload(); } }
 
 render();
