@@ -1,26 +1,23 @@
-let productos = JSON.parse(localStorage.getItem('fmp_data_v4')) || [];
-let ventas = JSON.parse(localStorage.getItem('fmp_sales_v4')) || [];
+let productos = JSON.parse(localStorage.getItem('gya_pro_items')) || [];
+let ventas = JSON.parse(localStorage.getItem('gya_pro_sales')) || [];
 
 function render() {
-    // 1. Tabla de Productos con cálculo de ganancia
     const tbodyP = document.querySelector('#tabla-productos tbody');
     tbodyP.innerHTML = '';
     productos.forEach(p => {
         const esBajo = p.stock <= (p.minimo || 10);
-        // Cálculo de % de Ganancia
-        const porcentajeGanancia = (((p.venta - p.costo) / p.costo) * 100).toFixed(0);
+        const ganancia = (((p.venta - p.costo) / p.costo) * 100).toFixed(0);
         
         tbodyP.innerHTML += `
             <tr class="${esBajo ? 'low-stock-row' : ''}">
                 <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
                 <td>${p.stock}</td>
                 <td>$${p.venta}</td>
-                <td class="badge-ganancia">${porcentajeGanancia}%</td>
+                <td class="badge-ganancia">${ganancia}%</td>
                 <td><button onclick="borrarP(${p.id})" class="btn-del">X</button></td>
             </tr>`;
     });
 
-    // 2. Tabla de Ventas
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     tbodyV.innerHTML = '';
     [...ventas].reverse().slice(0, 10).forEach((v, i) => {
@@ -38,13 +35,18 @@ function render() {
 }
 
 function actualizarDashboard() {
-    const hoyStr = new Date().toLocaleDateString();
-    const mesActual = new Date().getMonth();
-    const totalDia = ventas.filter(v => v.fecha === hoyStr).reduce((s, v) => s + v.total, 0);
-    const totalMes = ventas.filter(v => {
-        const [, m] = v.fecha.split('/');
-        return (parseInt(m) - 1) === mesActual;
-    }).reduce((s, v) => s + v.total, 0);
+    const ahora = new Date();
+    const hoyStr = ahora.toLocaleDateString();
+    const mesActual = ahora.getMonth();
+    const anioActual = ahora.getFullYear();
+
+    const totalDia = ventas
+        .filter(v => v.fechaStr === hoyStr)
+        .reduce((s, v) => s + v.total, 0);
+
+    const totalMes = ventas
+        .filter(v => v.mes === mesActual && v.anio === anioActual)
+        .reduce((s, v) => s + v.total, 0);
 
     document.getElementById('stat-dia').innerText = `$${totalDia.toLocaleString()}`;
     document.getElementById('stat-mes').innerText = `$${totalMes.toLocaleString()}`;
@@ -63,33 +65,42 @@ document.getElementById('venta-form').addEventListener('submit', (e) => {
     const c = parseInt(document.getElementById('v-cantidad').value);
 
     if (p && p.stock >= c) {
+        const t = new Date();
         p.stock -= c;
         ventas.push({
-            idProd: p.id, fecha: new Date().toLocaleDateString(),
-            hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            nombre: p.nombre, cantidad: c, total: p.venta * c, pago: document.getElementById('v-pago').value
+            idProd: p.id,
+            fechaStr: t.toLocaleDateString(),
+            mes: t.getMonth(),
+            anio: t.getFullYear(),
+            hora: t.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            nombre: p.nombre,
+            cantidad: c,
+            total: p.venta * c,
+            pago: document.getElementById('v-pago').value
         });
         save(); e.target.reset(); actualizarTotalVenta();
-    } else { alert("Stock insuficiente."); }
+    } else { alert("Stock insuficiente"); }
 });
 
 function descargarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const caja = actualizarDashboard();
-    doc.setFontSize(18); doc.text("Reporte de Caja - FactuManager Pro", 14, 20);
-    doc.setFontSize(11); doc.text(`Ventas Hoy: $${caja.totalDia} | Ventas Mes: $${caja.totalMes}`, 14, 30);
+    doc.setFontSize(20); doc.setTextColor(30, 55, 153);
+    doc.text("GestionYa PRO - Informe de Caja", 14, 20);
+    doc.setFontSize(11); doc.setTextColor(40);
+    doc.text(`Total Diario: $${caja.totalDia} | Total Mensual: $${caja.totalMes}`, 14, 30);
     doc.autoTable({
         startY: 35,
-        head: [['Hora', 'Producto', 'Cant', 'Total']],
-        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, `$${v.total}`])
+        head: [['Hora', 'Producto', 'Cant', 'Pago', 'Total']],
+        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, v.pago, `$${v.total}`])
     });
-    doc.save(`Reporte_${new Date().toLocaleDateString()}.pdf`);
+    doc.save(`GestionYa_Reporte_${new Date().toLocaleDateString()}.pdf`);
 }
 
 function save() { 
-    localStorage.setItem('fmp_data_v4', JSON.stringify(productos)); 
-    localStorage.setItem('fmp_sales_v4', JSON.stringify(ventas)); 
+    localStorage.setItem('gya_pro_items', JSON.stringify(productos)); 
+    localStorage.setItem('gya_pro_sales', JSON.stringify(ventas)); 
     render(); 
 }
 
@@ -126,6 +137,6 @@ function actualizarSelectores() {
     s.value = val;
 }
 
-function limpiarTodo() { if(confirm("¿Resetear sistema?")) { localStorage.clear(); location.reload(); } }
+function limpiarTodo() { if(confirm("¿Resetear GestionYa?")) { localStorage.clear(); location.reload(); } }
 
 render();
