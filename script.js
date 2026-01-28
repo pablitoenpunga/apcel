@@ -1,152 +1,173 @@
-// Cargar datos al iniciar
-let productos = JSON.parse(localStorage.getItem('prods')) || [];
-let ventas = JSON.parse(localStorage.getItem('vents')) || [];
+let productos = JSON.parse(localStorage.getItem('factu_pro_items')) || [];
+let ventas = JSON.parse(localStorage.getItem('factu_pro_sales')) || [];
 
-// 1. NAVEGACIÓN
-function showTab(id) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    render();
-}
-
-// 2. RENDERIZADO GENERAL (Actualiza todo sin recargar)
+// --- REFRESCAR VISTA ---
 function render() {
-    // Tabla Productos
+    // 1. Inventario con aviso de stock bajo
     const tbodyP = document.querySelector('#tabla-productos tbody');
     tbodyP.innerHTML = '';
     productos.forEach(p => {
-        // % Ganancia = ((Venta - Costo) / Costo) * 100
-        const ganancia = (((p.venta - p.costo) / p.costo) * 100).toFixed(1);
+        const esCritico = p.stock <= (p.minimo || 10);
         tbodyP.innerHTML += `
-            <tr>
-                <td>${p.nombre}</td>
-                <td class="${p.stock < 5 ? 'stock-bajo' : ''}">${p.stock}</td>
+            <tr class="${esCritico ? 'low-stock-row' : ''}">
+                <td>${p.nombre} ${esCritico ? '⚠️' : ''}</td>
+                <td>${p.stock}</td>
                 <td>$${p.venta}</td>
-                <td>${ganancia}%</td>
-                <td><button onclick="eliminarProducto(${p.id})" class="btn-danger">Eliminar</button></td>
+                <td><button onclick="borrarP(${p.id})" class="btn-del">X</button></td>
             </tr>`;
     });
 
-    // Tabla Ventas
+    // 2. Historial de Ventas
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     tbodyV.innerHTML = '';
-    [...ventas].reverse().forEach((v, index) => {
+    [...ventas].reverse().slice(0, 10).forEach((v, i) => {
         tbodyV.innerHTML += `
             <tr>
                 <td>${v.hora}</td>
                 <td>${v.nombre}</td>
-                <td>${v.cantidad}</td>
                 <td>$${v.total}</td>
-                <td>${v.tipo}</td>
-                <td><button onclick="anularVenta(${ventas.length - 1 - index})" class="btn-danger">Anular</button></td>
+                <td><button onclick="anularV(${ventas.length - 1 - i})" class="btn-del">↩</button></td>
             </tr>`;
     });
 
-    // Actualizar select de productos en ventas
-    const select = document.getElementById('v-producto');
-    const actual = select.value;
-    select.innerHTML = '<option value="">Seleccione producto...</option>';
-    productos.forEach(p => {
-        select.innerHTML += `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`;
-    });
-    select.value = actual;
+    actualizarSelectores();
+    actualizarDashboard();
 }
 
-// 3. LÓGICA DE PRODUCTOS
+// --- LOGICA DE CAJA (Día y Mes) ---
+function actualizarDashboard() {
+    const ahora = new Date();
+    const hoyStr = ahora.toLocaleDateString();
+    const mesActual = ahora.getMonth();
+    const añoActual = ahora.getFullYear();
+
+    const totalDia = ventas
+        .filter(v => v.fecha === hoyStr)
+        .reduce((sum, v) => sum + v.total, 0);
+
+    const totalMes = ventas
+        .filter(v => {
+            const [d, m, a] = v.fecha.split('/');
+            return (parseInt(m) - 1) === mesActual && parseInt(a) === añoActual;
+        })
+        .reduce((sum, v) => sum + v.total, 0);
+
+    document.getElementById('stat-dia').innerText = `$${totalDia.toLocaleString()}`;
+    document.getElementById('stat-mes').innerText = `$${totalMes.toLocaleString()}`;
+    
+    return { totalDia, totalMes };
+}
+
+// --- VENTAS ---
+function actualizarTotalVenta() {
+    const id = document.getElementById('v-producto').value;
+    const cant = document.getElementById('v-cantidad').value;
+    const prod = productos.find(x => x.id == id);
+    const label = document.getElementById('display-total');
+    label.innerText = (prod && cant > 0) ? `Total: $${(prod.venta * cant).toLocaleString()}` : "Total: $0.00";
+}
+
+document.getElementById('venta-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const prod = productos.find(x => x.id == document.getElementById('v-producto').value);
+    const cant = parseInt(document.getElementById('v-cantidad').value);
+
+    if (prod && prod.stock >= cant) {
+        prod.stock -= cant;
+        ventas.push({
+            idProd: prod.id,
+            fecha: new Date().toLocaleDateString(),
+            hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            nombre: prod.nombre,
+            cantidad: cant,
+            total: prod.venta * cant,
+            pago: document.getElementById('v-pago').value
+        });
+        save();
+        e.target.reset();
+        actualizarTotalVenta();
+    } else {
+        alert("¡Error! Stock insuficiente para realizar la venta.");
+    }
+});
+
+// --- PDF CON MATEMÁTICAS DEL DÍA/MES ---
+function descargarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const caja = actualizarDashboard();
+
+    doc.setFontSize(22);
+    doc.setTextColor(30, 55, 153);
+    doc.text("FactuManager Pro - Reporte", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 28);
+
+    // Resumen Superior
+    doc.setFillColor(241, 242, 246);
+    doc.rect(14, 35, 182, 25, 'F');
+    doc.setTextColor(47, 53, 66);
+    doc.setFontSize(12);
+    doc.text(`TOTAL DEL DÍA: $${caja.totalDia.toLocaleString()}`, 20, 45);
+    doc.text(`TOTAL DEL MES: $${caja.totalMes.toLocaleString()}`, 20, 53);
+
+    doc.autoTable({
+        startY: 70,
+        head: [['Hora', 'Producto', 'Cant', 'Pago', 'Subtotal']],
+        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, v.pago, `$${v.total}`]),
+        theme: 'striped',
+        headStyles: { fillColor: [30, 55, 153] }
+    });
+
+    doc.save(`Reporte_FactuManager_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+}
+
+// --- AUXILIARES ---
+function save() {
+    localStorage.setItem('factu_pro_items', JSON.stringify(productos));
+    localStorage.setItem('factu_pro_sales', JSON.stringify(ventas));
+    render();
+}
+
+function showTab(id) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
 document.getElementById('prod-form').addEventListener('submit', (e) => {
     e.preventDefault();
     productos.push({
         id: Date.now(),
         nombre: document.getElementById('p-nombre').value,
         stock: parseInt(document.getElementById('p-stock').value),
+        minimo: parseInt(document.getElementById('p-minimo').value),
         costo: parseFloat(document.getElementById('p-costo').value),
         venta: parseFloat(document.getElementById('p-venta').value)
     });
-    guardarYRefrescar();
-    e.target.reset();
+    save(); e.target.reset();
 });
 
-// 4. LÓGICA DE VENTAS
-function actualizarTotalVenta() {
-    const idProd = document.getElementById('v-producto').value;
-    const cant = document.getElementById('v-cantidad').value;
-    const prod = productos.find(p => p.id == idProd);
-    const display = document.getElementById('display-total');
-    
-    if (prod && cant > 0) {
-        display.innerText = `Total: $${(prod.venta * cant).toLocaleString()}`;
-    } else {
-        display.innerText = "Total: $0";
-    }
+function borrarP(id) { if(confirm("¿Borrar producto?")) { productos = productos.filter(x => x.id !== id); save(); } }
+function anularV(idx) {
+    const v = ventas[idx];
+    const p = productos.find(x => x.id == v.idProd);
+    if(p) p.stock += v.cantidad;
+    ventas.splice(idx, 1);
+    save();
 }
 
-document.getElementById('venta-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const idProd = document.getElementById('v-producto').value;
-    const cant = parseInt(document.getElementById('v-cantidad').value);
-    const prod = productos.find(p => p.id == idProd);
-
-    if (prod && prod.stock >= cant) {
-        prod.stock -= cant; // Descontar stock
-        ventas.push({
-            idProd: prod.id,
-            hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            nombre: prod.nombre,
-            cantidad: cant,
-            total: prod.venta * cant,
-            tipo: document.getElementById('v-pago').value
-        });
-        guardarYRefrescar();
-        e.target.reset();
-        document.getElementById('display-total').innerText = "Total: $0";
-    } else {
-        alert("Stock insuficiente.");
-    }
-});
-
-// 5. ANULAR VENTA (Devuelve el stock)
-function anularVenta(index) {
-    if(confirm("¿Anular esta venta? El stock será devuelto al producto.")) {
-        const venta = ventas[index];
-        const prod = productos.find(p => p.id == venta.idProd);
-        if(prod) prod.stock += venta.cantidad; // Devolver stock
-        ventas.splice(index, 1);
-        guardarYRefrescar();
-    }
+function actualizarSelectores() {
+    const s = document.getElementById('v-producto');
+    const val = s.value;
+    s.innerHTML = '<option value="">Seleccione producto...</option>';
+    productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (Dispo: ${p.stock})</option>`);
+    s.value = val;
 }
 
-// 6. PERSISTENCIA Y PDF
-function guardarYRefrescar() {
-    localStorage.setItem('prods', JSON.stringify(productos));
-    localStorage.setItem('vents', JSON.stringify(ventas));
-    render();
-}
+function limpiarTodo() { if(confirm("¿Deseas resetear todo el sistema?")) { localStorage.clear(); location.reload(); } }
 
-function descargarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.text("FactuManager Pro - Reporte de Ventas", 14, 15);
-    doc.autoTable({
-        startY: 20,
-        head: [['Hora', 'Producto', 'Cant.', 'Total', 'Pago']],
-        body: ventas.map(v => [v.hora, v.nombre, v.cantidad, `$${v.total}`, v.tipo])
-    });
-    doc.save("informe-ventas.pdf");
-}
-
-function eliminarProducto(id) {
-    if(confirm("¿Eliminar producto del inventario?")) {
-        productos = productos.filter(p => p.id !== id);
-        guardarYRefrescar();
-    }
-}
-
-function limpiarTodo() {
-    if(confirm("ATENCIÓN: Se borrarán todos los productos y ventas. ¿Continuar?")) {
-        localStorage.clear();
-        location.reload();
-    }
-}
-
-// Inicialización
 render();

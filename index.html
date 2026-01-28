@@ -2,8 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FactuManager Pro - Gestión Total</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FactuManager Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="estilos.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -11,89 +12,119 @@
 <body>
 
     <header>
-        <h1>FactuManager Pro</h1>
-        <div class="top-actions">
-            <button onclick="limpiarTodo()" class="btn-danger">Limpiar Todo</button>
+        <div class="header-inner">
+            <div class="brand">
+                <h1>FactuManager <span>PRO</span></h1>
+            </div>
+            <button onclick="limpiarTodo()" class="btn-clear-all" title="Reiniciar Sistema">♻️</button>
         </div>
     </header>
 
-    <nav class="main-nav">
-        <button onclick="showTab('tab-productos')">📦 PRODUCTOS</button>
-        <button onclick="showTab('tab-ventas')">💰 VENTAS</button>
-        <button onclick="showTab('tab-informes')">📋 INFORMES</button>
-    </nav>
-
-    <main>
-        <section id="tab-productos" class="tab-content active">
-            <div class="card">
-                <h3>Cargar Nuevo Producto</h3>
+    <main id="main-content">
+        <section id="tab-productos" class="tab-panel active">
+            <div class="card form-card">
+                <h3>📦 Nuevo Producto</h3>
                 <form id="prod-form">
-                    <input type="text" id="p-nombre" placeholder="Nombre (ej: Huevos)" required>
-                    <input type="number" id="p-stock" placeholder="Stock Inicial" required>
-                    <input type="number" id="p-costo" placeholder="Precio Costo ($)" required>
-                    <input type="number" id="p-venta" placeholder="Precio Venta ($)" required>
-                    <button type="submit">Guardar en Inventario</button>
+                    <input type="text" id="p-nombre" placeholder="Nombre (ej: Maple de Huevos)" required>
+                    <div class="input-group">
+                        <input type="number" id="p-stock" placeholder="Stock" required>
+                        <input type="number" id="p-minimo" placeholder="Aviso Mínimo" value="10" required>
+                    </div>
+                    <div class="input-group">
+                        <input type="number" id="p-costo" placeholder="Costo $" required>
+                        <input type="number" id="p-venta" placeholder="Venta $" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Guardar Producto</button>
                 </form>
             </div>
 
-            <div class="card">
-                <h3>📦 Inventario Actual</h3>
-                <table id="tabla-productos">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>Stock</th>
-                            <th>P. Venta</th>
-                            <th>Ganancia</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <div class="card table-card">
+                <h3>📊 Inventario</h3>
+                <div class="scrollable">
+                    <table id="tabla-productos">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Stock</th>
+                                <th>Venta</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
-        <section id="tab-ventas" class="tab-content">
-            <div class="card">
-                <h3>Registrar Venta</h3>
+        <section id="tab-ventas" class="tab-panel">
+            <div class="card form-card sale-card">
+                <h3>💰 Nueva Venta</h3>
                 <form id="venta-form">
                     <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
-                    <input type="number" id="v-cantidad" placeholder="Cantidad" oninput="actualizarTotalVenta()" required>
-                    <select id="v-pago">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                    </select>
-                    <h2 id="display-total">Total: $0</h2>
+                    <div class="input-group">
+                        <input type="number" id="v-cantidad" placeholder="Cantidad" oninput="actualizarTotalVenta()" required>
+                        <select id="v-pago">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                        </select>
+                    </div>
+                    <div class="total-container">
+                        <span id="display-total">Total: $0.00</span>
+                    </div>
                     <button type="submit" class="btn-success">Confirmar Venta</button>
                 </form>
             </div>
 
-            <div class="card">
-                <h3>📄 Historial de Ventas</h3>
-                <table id="tabla-ventas">
-                    <thead>
-                        <tr>
-                            <th>Hora</th>
-                            <th>Producto</th>
-                            <th>Cant.</th>
-                            <th>Total</th>
-                            <th>Pago</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <div class="card table-card">
+                <h3>🕒 Historial Reciente</h3>
+                <div class="scrollable">
+                    <table id="tabla-ventas">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Producto</th>
+                                <th>Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
-        <section id="tab-informes" class="tab-content">
-            <div class="card" style="text-align: center;">
-                <h3>Generar Reporte General</h3>
-                <p>Se descargará un PDF con el estado del stock y las ventas realizadas.</p>
-                <button onclick="descargarPDF()" class="btn-pdf">DESCARGAR PDF</button>
+        <section id="tab-informes" class="tab-panel">
+            <div class="card report-card">
+                <h3>📈 Resumen de Caja</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <label>Ventas Hoy</label>
+                        <p id="stat-dia">$0</p>
+                    </div>
+                    <div class="stat-box">
+                        <label>Ventas Mes</label>
+                        <p id="stat-mes">$0</p>
+                    </div>
+                </div>
+                <button onclick="descargarPDF()" class="btn-pdf">Descargar Informe PDF</button>
             </div>
         </section>
     </main>
+
+    <nav class="bottom-nav">
+        <button onclick="showTab('tab-productos')" class="nav-item active">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Stock</span>
+        </button>
+        <button onclick="showTab('tab-ventas')" class="nav-item">
+            <span class="nav-icon">💰</span>
+            <span class="nav-label">Venta</span>
+        </button>
+        <button onclick="showTab('tab-informes')" class="nav-item">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Caja</span>
+        </button>
+    </nav>
 
     <script src="script.js"></script>
 </body>
