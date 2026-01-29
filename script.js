@@ -21,12 +21,10 @@ let productos = [];
 let ventas = [];
 let gastos = [];
 
-// --- GESTIÓN DE USUARIO ---
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
         document.getElementById('auth-screen').style.display = 'none';
-        // Cambiamos a 'flex' para que la barra lateral de PC funcione bien
         document.getElementById('app-screen').style.display = 'flex';
         document.getElementById('user-display').innerText = user.email;
         vincularBaseDeDatos();
@@ -37,7 +35,6 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Login y Registro
 document.getElementById('login-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -48,13 +45,12 @@ document.getElementById('login-form').addEventListener('submit', (e) => {
 document.getElementById('btn-register').addEventListener('click', () => {
     const email = document.getElementById('login-email').value;
     const pass = document.getElementById('login-pass').value;
-    if (pass.length < 6) return alert("La clave debe tener 6 caracteres.");
+    if (pass.length < 6) return alert("Mínimo 6 caracteres.");
     createUserWithEmailAndPassword(auth, email, pass).catch(err => alert("Error: " + err.message));
 });
 
 window.cerrarSesion = () => signOut(auth);
 
-// --- SINCRONIZACIÓN ---
 function vincularBaseDeDatos() {
     const path = `usuarios/${currentUser.uid}`;
     onSnapshot(collection(db, path, "productos"), (snap) => {
@@ -72,13 +68,12 @@ function vincularBaseDeDatos() {
 }
 
 function render() {
-    // 1. Productos
     const tbodyP = document.querySelector('#tabla-productos tbody');
     if(tbodyP) {
         tbodyP.innerHTML = '';
         productos.sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
             const esBajo = p.stock <= (p.minimo || 10);
-            const ganancia = (((p.venta - p.costo) / p.costo) * 100).toFixed(0);
+            const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
                     <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
@@ -90,7 +85,6 @@ function render() {
         });
     }
 
-    // 2. Ventas
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     if(tbodyV) {
         tbodyV.innerHTML = '';
@@ -99,7 +93,6 @@ function render() {
         });
     }
 
-    // 3. Gastos
     const tbodyG = document.querySelector('#tabla-gastos tbody');
     if(tbodyG) {
         tbodyG.innerHTML = '';
@@ -158,8 +151,7 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
             timestamp: Date.now()
         });
-        const pRef = doc(db, `usuarios/${currentUser.uid}/productos`, pId);
-        await updateDoc(pRef, { stock: p.stock - cant });
+        await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { stock: p.stock - cant });
         e.target.reset();
         document.getElementById('display-total').innerText = "Total: $0.00";
     } else { alert("Stock insuficiente"); }
@@ -178,34 +170,28 @@ document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.target.reset();
 });
 
-// --- FUNCIONES GLOBALES ---
+// --- ELIMINACIONES ---
 window.borrarP = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/productos`, id)); };
 window.borrarGasto = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, id)); };
 window.anularV = async (idVenta, idProd, cant) => {
     if(confirm("¿Anular venta?")) {
         await deleteDoc(doc(db, `usuarios/${currentUser.uid}/ventas`, idVenta));
         const p = productos.find(x => x.id === idProd);
-        if(p) {
-            const pRef = doc(db, `usuarios/${currentUser.uid}/productos`, idProd);
-            await updateDoc(pRef, { stock: p.stock + cant });
-        }
+        if(p) await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, idProd), { stock: p.stock + cant });
     }
 };
 
 window.showTab = (id) => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    
     const target = document.getElementById(id);
     if(target) target.classList.add('active');
     
-    // Actualizar títulos
     const titulos = { 'tab-productos': 'Inventario', 'tab-ventas': 'Punto de Venta', 'tab-gastos': 'Gastos', 'tab-informes': 'Reportes' };
-    document.getElementById('current-tab-title').innerText = titulos[id];
+    const titleEl = document.getElementById('current-tab-title');
+    if(titleEl) titleEl.innerText = titulos[id];
 
-    // Marcar botón activo
-    const buttons = document.querySelectorAll('.nav-item');
-    buttons.forEach(btn => {
+    document.querySelectorAll('.nav-item').forEach(btn => {
         if(btn.getAttribute('onclick').includes(id)) btn.classList.add('active');
     });
 };
@@ -226,14 +212,46 @@ window.actualizarTotalVenta = () => {
     if(totalEl) totalEl.innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
 };
 
+// --- PDF MEJORADO ---
 window.descargarPDF = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const b = actualizarDashboard();
-    doc.text("GestionYa PRO - Cierre de Caja", 14, 20);
-    doc.text(`Balance Neto Hoy: $${b.netoDia}`, 14, 30);
-    doc.autoTable({ startY: 40, head: [['Hora', 'Tipo', 'Monto']], 
-        body: [ ...ventas.map(v => [v.hora, 'Venta: '+v.nombre, '$'+v.total]), ...gastos.map(g => [g.hora, 'GASTO: '+g.motivo, '-$'+g.monto]) ] 
+    const t = new Date();
+
+    doc.setFontSize(22);
+    doc.setTextColor(30, 55, 153); // Azul primary
+    doc.text("GestionYa PRO", 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Fecha del reporte: ${t.toLocaleDateString()} ${t.toLocaleTimeString()}`, 14, 28);
+
+    // Resumen Destacado
+    doc.setDrawColor(200);
+    doc.line(14, 32, 196, 32);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(`BALANCE NETO HOY: $${b.netoDia.toLocaleString()}`, 14, 42);
+    
+    doc.setTextColor(7, 153, 146); // Verde success
+    doc.text(`TOTAL ACUMULADO MES: $${b.netoMes.toLocaleString()}`, 14, 52);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("(Este total ya descuenta los gastos registrados del período)", 14, 58);
+
+    // Tabla de Movimientos
+    doc.autoTable({ 
+        startY: 65, 
+        head: [['Hora', 'Movimiento', 'Monto']], 
+        headStyles: { fillColor: [30, 55, 153] },
+        body: [ 
+            ...ventas.filter(v => v.fechaStr === t.toLocaleDateString()).map(v => [v.hora, 'VENTA: ' + v.nombre, '$' + v.total]), 
+            ...gastos.filter(g => g.fechaStr === t.toLocaleDateString()).map(g => [g.hora, 'GASTO: ' + g.motivo, '-$' + g.monto]) 
+        ] 
     });
-    doc.save("Cierre_Caja.pdf");
+
+    doc.save(`Cierre_Caja_${t.toLocaleDateString()}.pdf`);
 };
