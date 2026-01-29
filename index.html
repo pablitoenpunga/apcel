@@ -16,103 +16,119 @@
 </head>
 <body>
 
-    <header>
-        <div class="header-inner">
-            <h1>GestionYa <span>PRO</span></h1>
-            <button onclick="limpiarTodo()" class="btn-clear-all">♻️</button>
+    <div id="auth-screen" class="auth-container">
+        <div class="auth-card">
+            <img src="icon.png" alt="Logo" class="auth-logo">
+            <h2>GestionYa PRO</h2>
+            <p>Ingresá para gestionar tu comercio</p>
+            <form id="login-form">
+                <input type="email" id="login-email" placeholder="Email del comercio" required>
+                <input type="password" id="login-pass" placeholder="Contraseña" required>
+                <button type="submit" class="btn-primary">Iniciar Sesión</button>
+                <button type="button" id="btn-register" class="btn-secondary">Crear Cuenta Nueva</button>
+            </form>
         </div>
-    </header>
+    </div>
 
-    <main id="main-content">
-        <section id="tab-productos" class="tab-panel active">
-            <div class="card form-card">
-                <h3>📦 Inventario</h3>
-                <form id="prod-form">
-                    <input type="text" id="p-nombre" placeholder="Nombre del producto" required>
-                    <div class="input-group">
-                        <input type="number" id="p-stock" placeholder="Stock" required>
-                        <input type="number" id="p-minimo" placeholder="Alerta Mínima" value="10" required>
+    <div id="app-screen" style="display: none;">
+        <header>
+            <div class="header-inner">
+                <h1>GestionYa <span>PRO</span></h1>
+                <button onclick="cerrarSesion()" class="btn-logout">Sair</button>
+            </div>
+        </header>
+
+        <main id="main-content">
+            <section id="tab-productos" class="tab-panel active">
+                <div class="card form-card">
+                    <h3>📦 Inventario</h3>
+                    <form id="prod-form">
+                        <input type="text" id="p-nombre" placeholder="Nombre del producto" required>
+                        <div class="input-group">
+                            <input type="number" id="p-stock" placeholder="Stock" required>
+                            <input type="number" id="p-minimo" placeholder="Alerta Mínima" value="10" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="p-costo" placeholder="Costo $" required>
+                            <input type="number" id="p-venta" placeholder="Venta $" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Registrar Producto</button>
+                    </form>
+                </div>
+                <div class="card table-card">
+                    <div class="scrollable">
+                        <table id="tabla-productos">
+                            <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
-                    <div class="input-group">
-                        <input type="number" id="p-costo" placeholder="Costo $" required>
-                        <input type="number" id="p-venta" placeholder="Venta $" required>
+                </div>
+            </section>
+
+            <section id="tab-ventas" class="tab-panel">
+                <div class="card form-card">
+                    <h3>💰 Punto de Venta</h3>
+                    <form id="venta-form">
+                        <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
+                        <div class="input-group">
+                            <input type="number" id="v-cantidad" placeholder="Cant." oninput="actualizarTotalVenta()" required>
+                            <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
+                        </div>
+                        <div class="total-container"><span id="display-total">Total: $0.00</span></div>
+                        <button type="submit" class="btn-success">Confirmar Venta</button>
+                    </form>
+                </div>
+                <div class="card table-card">
+                    <h3>🕒 Historial</h3>
+                    <div class="scrollable">
+                        <table id="tabla-ventas">
+                            <thead><tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
-                    <button type="submit" class="btn-primary">Registrar Producto</button>
-                </form>
-            </div>
-            <div class="card table-card">
-                <div class="scrollable">
-                    <table id="tabla-productos">
-                        <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr></thead>
-                        <tbody></tbody>
-                    </table>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section id="tab-ventas" class="tab-panel">
-            <div class="card form-card">
-                <h3>💰 Punto de Venta</h3>
-                <form id="venta-form">
-                    <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
-                    <div class="input-group">
-                        <input type="number" id="v-cantidad" placeholder="Cant." oninput="actualizarTotalVenta()" required>
-                        <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
+            <section id="tab-gastos" class="tab-panel">
+                <div class="card form-card">
+                    <h3>💸 Gastos Varios</h3>
+                    <form id="gasto-form">
+                        <input type="text" id="g-descripcion" placeholder="Descripción (ej: Bolsas)" required>
+                        <input type="number" id="g-monto" placeholder="Monto $" required>
+                        <button type="submit" class="btn-warning">Registrar Gasto</button>
+                    </form>
+                </div>
+                <div class="card table-card">
+                    <h3>📉 Detalle de Gastos</h3>
+                    <div class="scrollable">
+                        <table id="tabla-gastos">
+                            <thead><tr><th>Hora</th><th>Motivo</th><th>Monto</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
-                    <div class="total-container"><span id="display-total">Total: $0.00</span></div>
-                    <button type="submit" class="btn-success">Confirmar Venta</button>
-                </form>
-            </div>
-            <div class="card table-card">
-                <h3>🕒 Historial</h3>
-                <div class="scrollable">
-                    <table id="tabla-ventas">
-                        <thead><tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr></thead>
-                        <tbody></tbody>
-                    </table>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section id="tab-gastos" class="tab-panel">
-            <div class="card form-card">
-                <h3>💸 Gastos Varios</h3>
-                <form id="gasto-form">
-                    <input type="text" id="g-descripcion" placeholder="Descripción (ej: Bolsas)" required>
-                    <input type="number" id="g-monto" placeholder="Monto $" required>
-                    <button type="submit" class="btn-warning">Registrar Gasto</button>
-                </form>
-            </div>
-            <div class="card table-card">
-                <h3>📉 Detalle de Gastos</h3>
-                <div class="scrollable">
-                    <table id="tabla-gastos">
-                        <thead><tr><th>Hora</th><th>Motivo</th><th>Monto</th><th></th></tr></thead>
-                        <tbody></tbody>
-                    </table>
+            <section id="tab-informes" class="tab-panel">
+                <div class="card report-card">
+                    <h3>📈 Balance Neto (Caja)</h3>
+                    <div class="stats-grid">
+                        <div class="stat-box"><label>Hoy</label><p id="stat-dia">$0</p></div>
+                        <div class="stat-box"><label>Mes</label><p id="stat-mes">$0</p></div>
+                    </div>
+                    <button onclick="descargarPDF()" class="btn-pdf">Generar Informe Diario</button>
                 </div>
-            </div>
-        </section>
+            </section>
+        </main>
 
-        <section id="tab-informes" class="tab-panel">
-            <div class="card report-card">
-                <h3>📈 Balance Neto (Caja)</h3>
-                <div class="stats-grid">
-                    <div class="stat-box"><label>Hoy</label><p id="stat-dia">$0</p></div>
-                    <div class="stat-box"><label>Mes</label><p id="stat-mes">$0</p></div>
-                </div>
-                <button onclick="descargarPDF()" class="btn-pdf">Generar Informe Diario</button>
-            </div>
-        </section>
-    </main>
+        <nav class="bottom-nav">
+            <button onclick="showTab('tab-productos')" class="nav-item active"><span class="nav-icon">📦</span><span class="nav-label">Stock</span></button>
+            <button onclick="showTab('tab-ventas')" class="nav-item"><span class="nav-icon">💰</span><span class="nav-label">Ventas</span></button>
+            <button onclick="showTab('tab-gastos')" class="nav-item"><span class="nav-icon">💸</span><span class="nav-label">Gastos</span></button>
+            <button onclick="showTab('tab-informes')" class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">Caja</span></button>
+        </nav>
+    </div>
 
-    <nav class="bottom-nav">
-        <button onclick="showTab('tab-productos')" class="nav-item active"><span class="nav-icon">📦</span><span class="nav-label">Stock</span></button>
-        <button onclick="showTab('tab-ventas')" class="nav-item"><span class="nav-icon">💰</span><span class="nav-label">Ventas</span></button>
-        <button onclick="showTab('tab-gastos')" class="nav-item"><span class="nav-icon">💸</span><span class="nav-label">Gastos</span></button>
-        <button onclick="showTab('tab-informes')" class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">Caja</span></button>
-    </nav>
-
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>
