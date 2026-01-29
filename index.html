@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GestionYa PRO</title>
+    <title>GestionYa PRO - Sistema de Gestión</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e3799">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="estilos.css">
@@ -19,114 +17,130 @@
     <div id="auth-screen" class="auth-container">
         <div class="auth-card">
             <img src="icon.png" alt="Logo" class="auth-logo">
-            <h2>GestionYa PRO</h2>
-            <p>Ingresá para gestionar tu comercio</p>
+            <h2>GestionYa <span>PRO</span></h2>
+            <p>Ingresá al panel de tu comercio</p>
             <form id="login-form">
-                <input type="email" id="login-email" placeholder="Email del comercio" required>
+                <input type="email" id="login-email" placeholder="Email" required>
                 <input type="password" id="login-pass" placeholder="Contraseña" required>
-                <button type="submit" class="btn-primary">Iniciar Sesión</button>
-                <button type="button" id="btn-register" class="btn-secondary">Crear Cuenta Nueva</button>
+                <button type="submit" class="btn-primary">Entrar</button>
+                <button type="button" id="btn-register" class="btn-secondary">Registrar Comercio</button>
             </form>
         </div>
     </div>
 
-    <div id="app-screen" style="display: none;">
-        <header>
-            <div class="header-inner">
-                <h1>GestionYa <span>PRO</span></h1>
-                <button onclick="cerrarSesion()" class="btn-logout">Sair</button>
+    <div id="app-screen" class="main-layout" style="display: none;">
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>GestionYa <span>PRO</span></h2>
             </div>
-        </header>
+            <nav class="nav-menu">
+                <button onclick="showTab('tab-productos')" class="nav-item active">
+                    <span class="icon">📦</span> <span class="label">Inventario</span>
+                </button>
+                <button onclick="showTab('tab-ventas')" class="nav-item">
+                    <span class="icon">💰</span> <span class="label">Punto de Venta</span>
+                </button>
+                <button onclick="showTab('tab-gastos')" class="nav-item">
+                    <span class="icon">💸</span> <span class="label">Gastos</span>
+                </button>
+                <button onclick="showTab('tab-informes')" class="nav-item">
+                    <span class="icon">📊</span> <span class="label">Reportes</span>
+                </button>
+            </nav>
+            <button onclick="cerrarSesion()" class="btn-logout-sidebar">Cerrar Sesión</button>
+        </aside>
 
-        <main id="main-content">
-            <section id="tab-productos" class="tab-panel active">
-                <div class="card form-card">
-                    <h3>📦 Inventario</h3>
-                    <form id="prod-form">
-                        <input type="text" id="p-nombre" placeholder="Nombre del producto" required>
-                        <div class="input-group">
-                            <input type="number" id="p-stock" placeholder="Stock" required>
-                            <input type="number" id="p-minimo" placeholder="Alerta Mínima" value="10" required>
+        <div class="content-area">
+            <header class="top-bar">
+                <h2 id="current-tab-title">Inventario</h2>
+                <div class="user-info">
+                    <span id="user-display">Comercio Activo</span>
+                </div>
+            </header>
+
+            <main class="dashboard-grid">
+                <section id="tab-productos" class="tab-panel active">
+                    <div class="grid-container">
+                        <div class="card form-card">
+                            <h3>Nuevo Producto</h3>
+                            <form id="prod-form">
+                                <input type="text" id="p-nombre" placeholder="Nombre" required>
+                                <div class="input-group">
+                                    <input type="number" id="p-stock" placeholder="Stock">
+                                    <input type="number" id="p-minimo" placeholder="Mínimo" value="10">
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" id="p-costo" placeholder="Costo $">
+                                    <input type="number" id="p-venta" placeholder="Venta $">
+                                </div>
+                                <button type="submit" class="btn-primary">Guardar</button>
+                            </form>
                         </div>
-                        <div class="input-group">
-                            <input type="number" id="p-costo" placeholder="Costo $" required>
-                            <input type="number" id="p-venta" placeholder="Venta $" required>
+                        <div class="card table-card">
+                            <div class="scrollable">
+                                <table id="tabla-productos">
+                                    <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
                         </div>
-                        <button type="submit" class="btn-primary">Registrar Producto</button>
-                    </form>
-                </div>
-                <div class="card table-card">
-                    <div class="scrollable">
-                        <table id="tabla-productos">
-                            <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr></thead>
-                            <tbody></tbody>
-                        </table>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section id="tab-ventas" class="tab-panel">
-                <div class="card form-card">
-                    <h3>💰 Punto de Venta</h3>
-                    <form id="venta-form">
-                        <select id="v-producto" onchange="actualizarTotalVenta()" required></select>
-                        <div class="input-group">
-                            <input type="number" id="v-cantidad" placeholder="Cant." oninput="actualizarTotalVenta()" required>
-                            <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
+                <section id="tab-ventas" class="tab-panel">
+                    <div class="grid-container">
+                        <div class="card form-card">
+                            <h3>Registrar Venta</h3>
+                            <form id="venta-form">
+                                <select id="v-producto" required></select>
+                                <div class="input-group">
+                                    <input type="number" id="v-cantidad" placeholder="Cant.">
+                                    <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
+                                </div>
+                                <div class="total-container"><span id="display-total">Total: $0.00</span></div>
+                                <button type="submit" class="btn-success">Confirmar Venta</button>
+                            </form>
                         </div>
-                        <div class="total-container"><span id="display-total">Total: $0.00</span></div>
-                        <button type="submit" class="btn-success">Confirmar Venta</button>
-                    </form>
-                </div>
-                <div class="card table-card">
-                    <h3>🕒 Historial</h3>
-                    <div class="scrollable">
-                        <table id="tabla-ventas">
-                            <thead><tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr></thead>
-                            <tbody></tbody>
-                        </table>
+                        <div class="card table-card">
+                            <table id="tabla-ventas">
+                                <thead><tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section id="tab-gastos" class="tab-panel">
-                <div class="card form-card">
-                    <h3>💸 Gastos Varios</h3>
-                    <form id="gasto-form">
-                        <input type="text" id="g-descripcion" placeholder="Descripción (ej: Bolsas)" required>
-                        <input type="number" id="g-monto" placeholder="Monto $" required>
-                        <button type="submit" class="btn-warning">Registrar Gasto</button>
-                    </form>
-                </div>
-                <div class="card table-card">
-                    <h3>📉 Detalle de Gastos</h3>
-                    <div class="scrollable">
-                        <table id="tabla-gastos">
-                            <thead><tr><th>Hora</th><th>Motivo</th><th>Monto</th><th></th></tr></thead>
-                            <tbody></tbody>
-                        </table>
+                <section id="tab-gastos" class="tab-panel">
+                    <div class="grid-container">
+                        <div class="card form-card">
+                            <h3>Registrar Gasto</h3>
+                            <form id="gasto-form">
+                                <input type="text" id="g-descripcion" placeholder="Motivo" required>
+                                <input type="number" id="g-monto" placeholder="Monto $" required>
+                                <button type="submit" class="btn-warning">Guardar Gasto</button>
+                            </form>
+                        </div>
+                        <div class="card table-card">
+                            <table id="tabla-gastos">
+                                <thead><tr><th>Hora</th><th>Motivo</th><th>Monto</th><th></th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section id="tab-informes" class="tab-panel">
-                <div class="card report-card">
-                    <h3>📈 Balance Neto (Caja)</h3>
-                    <div class="stats-grid">
-                        <div class="stat-box"><label>Hoy</label><p id="stat-dia">$0</p></div>
-                        <div class="stat-box"><label>Mes</label><p id="stat-mes">$0</p></div>
+                <section id="tab-informes" class="tab-panel">
+                    <div class="card report-card large">
+                        <div class="stats-row">
+                            <div class="stat-box"><h4>Hoy</h4><p id="stat-dia">$0</p></div>
+                            <div class="stat-box"><h4>Este Mes</h4><p id="stat-mes">$0</p></div>
+                        </div>
+                        <button onclick="descargarPDF()" class="btn-pdf">Descargar Cierre Diario (PDF)</button>
                     </div>
-                    <button onclick="descargarPDF()" class="btn-pdf">Generar Informe Diario</button>
-                </div>
-            </section>
-        </main>
-
-        <nav class="bottom-nav">
-            <button onclick="showTab('tab-productos')" class="nav-item active"><span class="nav-icon">📦</span><span class="nav-label">Stock</span></button>
-            <button onclick="showTab('tab-ventas')" class="nav-item"><span class="nav-icon">💰</span><span class="nav-label">Ventas</span></button>
-            <button onclick="showTab('tab-gastos')" class="nav-item"><span class="nav-icon">💸</span><span class="nav-label">Gastos</span></button>
-            <button onclick="showTab('tab-informes')" class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">Caja</span></button>
-        </nav>
+                </section>
+            </main>
+        </div>
     </div>
 
     <script type="module" src="script.js"></script>
