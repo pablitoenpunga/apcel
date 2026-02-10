@@ -69,17 +69,21 @@ function vincularBaseDeDatos() {
 }
 
 function render() {
-    // 1. Productos
+    // 1. Productos (RESTAURADO: % GANANCIA)
     const tbodyP = document.querySelector('#tabla-productos tbody');
     if(tbodyP) {
         tbodyP.innerHTML = '';
         productos.sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
             const esBajo = p.stock <= (p.minimo || 10);
+            // Cálculo de ganancia
+            const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
+            
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
                     <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
                     <td>${p.stock}</td>
                     <td>$${p.venta}</td>
+                    <td class="badge-ganancia">${ganancia}%</td>
                     <td>
                         <button onclick="editarP('${p.id}')" class="btn-edit">✏️</button>
                         <button onclick="borrarP('${p.id}')" class="btn-del">🗑️</button>
@@ -283,10 +287,8 @@ window.descargarPDF = () => {
     const t = new Date();
     const hoyStr = t.toLocaleDateString();
 
-    // Filtramos ventas de hoy para el reporte
     const ventasHoy = ventas.filter(v => v.fechaStr === hoyStr);
     
-    // Cálculos de Efectivo vs Transferencia
     const totalEfectivo = ventasHoy.filter(v => v.pago === 'Efectivo').reduce((s, v) => s + v.total, 0);
     const totalTransf = ventasHoy.filter(v => v.pago === 'Transferencia').reduce((s, v) => s + v.total, 0);
 
@@ -301,7 +303,6 @@ window.descargarPDF = () => {
     doc.setDrawColor(200);
     doc.line(14, 32, 196, 32);
     
-    // Resumen de Caja
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text(`BALANCE NETO HOY: $${b.netoDia.toLocaleString()}`, 14, 42);
@@ -315,7 +316,6 @@ window.descargarPDF = () => {
     doc.setTextColor(7, 153, 146);
     doc.text(`ACUMULADO MES (Neto): $${b.netoMes.toLocaleString()}`, 14, 66);
 
-    // Tabla
     doc.autoTable({ 
         startY: 75, 
         head: [['Hora', 'Movimiento', 'Pago', 'Monto']], 
