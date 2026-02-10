@@ -20,6 +20,7 @@ let currentUser = null;
 let productos = [];
 let ventas = [];
 let gastos = [];
+let editandoId = null;
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -68,31 +69,36 @@ function vincularBaseDeDatos() {
 }
 
 function render() {
+    // 1. Productos
     const tbodyP = document.querySelector('#tabla-productos tbody');
     if(tbodyP) {
         tbodyP.innerHTML = '';
         productos.sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
             const esBajo = p.stock <= (p.minimo || 10);
-            const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
                     <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
                     <td>${p.stock}</td>
                     <td>$${p.venta}</td>
-                    <td class="badge-ganancia">${ganancia}%</td>
-                    <td><button onclick="borrarP('${p.id}')" class="btn-del">X</button></td>
+                    <td>
+                        <button onclick="editarP('${p.id}')" class="btn-edit">✏️</button>
+                        <button onclick="borrarP('${p.id}')" class="btn-del">🗑️</button>
+                    </td>
                 </tr>`;
         });
     }
 
+    // 2. Ventas
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     if(tbodyV) {
         tbodyV.innerHTML = '';
         [...ventas].sort((a,b) => b.timestamp - a.timestamp).slice(0, 15).forEach(v => {
-            tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.nombre}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
+            const pagoCorto = v.pago === 'Transferencia' ? 'Transf.' : v.pago;
+            tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.nombre}</td><td>${pagoCorto}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
         });
     }
 
+    // 3. Gastos
     const tbodyG = document.querySelector('#tabla-gastos tbody');
     if(tbodyG) {
         tbodyG.innerHTML = '';
@@ -124,18 +130,70 @@ function actualizarDashboard() {
     return { netoDia: vDia - gDia, netoMes: vMes - gMes };
 }
 
+// --- LÓGICA DE CALCULADORA ---
+document.getElementById('calc-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const costoTotal = parseFloat(document.getElementById('c-costo-total').value);
+    const cantidad = parseFloat(document.getElementById('c-cantidad').value);
+    const margen = parseFloat(document.getElementById('c-margen').value);
+
+    if (costoTotal > 0 && cantidad > 0) {
+        const costoUnitario = costoTotal / cantidad;
+        const precioVenta = costoUnitario * (1 + (margen / 100));
+        const gananciaTotal = (precioVenta * cantidad) - costoTotal;
+
+        document.getElementById('res-precio-unitario').innerText = `$${Math.ceil(precioVenta).toLocaleString()}`;
+        document.getElementById('res-ganancia').innerText = `$${Math.ceil(gananciaTotal).toLocaleString()}`;
+        document.getElementById('calc-resultado').style.display = 'block';
+    } else {
+        alert("Ingresá valores válidos mayor a 0");
+    }
+});
+
 // --- FORMULARIOS ---
 document.getElementById('prod-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    await addDoc(collection(db, `usuarios/${currentUser.uid}/productos`), {
+    const data = {
         nombre: document.getElementById('p-nombre').value,
         stock: parseInt(document.getElementById('p-stock').value) || 0,
         minimo: parseInt(document.getElementById('p-minimo').value) || 0,
         costo: parseFloat(document.getElementById('p-costo').value) || 0,
         venta: parseFloat(document.getElementById('p-venta').value) || 0
-    });
-    e.target.reset();
+    };
+
+    if (editandoId) {
+        await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, editandoId), data);
+        alert("Producto actualizado");
+        cancelarEdicion();
+    } else {
+        await addDoc(collection(db, `usuarios/${currentUser.uid}/productos`), data);
+        alert("Producto registrado");
+        e.target.reset();
+    }
 });
+
+window.editarP = (id) => {
+    const p = productos.find(x => x.id === id);
+    if(p) {
+        document.getElementById('p-nombre').value = p.nombre;
+        document.getElementById('p-stock').value = p.stock;
+        document.getElementById('p-minimo').value = p.minimo;
+        document.getElementById('p-costo').value = p.costo;
+        document.getElementById('p-venta').value = p.venta;
+        
+        editandoId = id;
+        document.getElementById('btn-save-prod').innerText = "Actualizar Producto";
+        document.getElementById('btn-cancel-edit').style.display = "block";
+        document.getElementById('prod-form').scrollIntoView({ behavior: 'smooth' });
+    }
+};
+
+window.cancelarEdicion = () => {
+    editandoId = null;
+    document.getElementById('prod-form').reset();
+    document.getElementById('btn-save-prod').innerText = "Guardar Producto";
+    document.getElementById('btn-cancel-edit').style.display = "none";
+};
 
 document.getElementById('venta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -170,7 +228,6 @@ document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.target.reset();
 });
 
-// --- ELIMINACIONES ---
 window.borrarP = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/productos`, id)); };
 window.borrarGasto = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, id)); };
 window.anularV = async (idVenta, idProd, cant) => {
@@ -187,7 +244,7 @@ window.showTab = (id) => {
     const target = document.getElementById(id);
     if(target) target.classList.add('active');
     
-    const titulos = { 'tab-productos': 'Inventario', 'tab-ventas': 'Punto de Venta', 'tab-gastos': 'Gastos', 'tab-informes': 'Reportes' };
+    const titulos = { 'tab-productos': 'Inventario', 'tab-ventas': 'Ventas', 'tab-gastos': 'Gastos', 'tab-calculadora': 'Calculadora', 'tab-informes': 'Reportes' };
     const titleEl = document.getElementById('current-tab-title');
     if(titleEl) titleEl.innerText = titulos[id];
 
@@ -205,53 +262,68 @@ function actualizarSelectores() {
     s.value = val;
 }
 
-window.actualizarTotalVenta = () => {
-    const p = productos.find(x => x.id == document.getElementById('v-producto').value);
+function calcularTotal() {
+    const pId = document.getElementById('v-producto').value;
+    const p = productos.find(x => x.id === pId);
     const c = document.getElementById('v-cantidad').value;
     const totalEl = document.getElementById('display-total');
-    if(totalEl) totalEl.innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
-};
+    if (totalEl) totalEl.innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
+}
 
-// --- PDF MEJORADO ---
+const selectProd = document.getElementById('v-producto');
+const inputCant = document.getElementById('v-cantidad');
+if(selectProd) selectProd.addEventListener('change', calcularTotal);
+if(inputCant) inputCant.addEventListener('input', calcularTotal);
+
+// --- PDF COMPLETO (DESGLOSE EFECTIVO/TRANSF) ---
 window.descargarPDF = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const b = actualizarDashboard();
     const t = new Date();
+    const hoyStr = t.toLocaleDateString();
+
+    // Filtramos ventas de hoy para el reporte
+    const ventasHoy = ventas.filter(v => v.fechaStr === hoyStr);
+    
+    // Cálculos de Efectivo vs Transferencia
+    const totalEfectivo = ventasHoy.filter(v => v.pago === 'Efectivo').reduce((s, v) => s + v.total, 0);
+    const totalTransf = ventasHoy.filter(v => v.pago === 'Transferencia').reduce((s, v) => s + v.total, 0);
 
     doc.setFontSize(22);
-    doc.setTextColor(30, 55, 153); // Azul primary
+    doc.setTextColor(30, 55, 153);
     doc.text("GestionYa PRO", 14, 20);
     
     doc.setFontSize(12);
     doc.setTextColor(100);
-    doc.text(`Fecha del reporte: ${t.toLocaleDateString()} ${t.toLocaleTimeString()}`, 14, 28);
-
-    // Resumen Destacado
+    doc.text(`Fecha: ${hoyStr} ${t.toLocaleTimeString()}`, 14, 28);
+    
     doc.setDrawColor(200);
     doc.line(14, 32, 196, 32);
     
+    // Resumen de Caja
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text(`BALANCE NETO HOY: $${b.netoDia.toLocaleString()}`, 14, 42);
     
-    doc.setTextColor(7, 153, 146); // Verde success
-    doc.text(`TOTAL ACUMULADO MES: $${b.netoMes.toLocaleString()}`, 14, 52);
+    doc.setFontSize(11);
+    doc.setTextColor(50);
+    doc.text(`• Efectivo en Caja: $${totalEfectivo.toLocaleString()}`, 14, 50);
+    doc.text(`• Banco/Transf: $${totalTransf.toLocaleString()}`, 14, 56);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(7, 153, 146);
+    doc.text(`ACUMULADO MES (Neto): $${b.netoMes.toLocaleString()}`, 14, 66);
 
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("(Este total ya descuenta los gastos registrados del período)", 14, 58);
-
-    // Tabla de Movimientos
+    // Tabla
     doc.autoTable({ 
-        startY: 65, 
-        head: [['Hora', 'Movimiento', 'Monto']], 
+        startY: 75, 
+        head: [['Hora', 'Movimiento', 'Pago', 'Monto']], 
         headStyles: { fillColor: [30, 55, 153] },
         body: [ 
-            ...ventas.filter(v => v.fechaStr === t.toLocaleDateString()).map(v => [v.hora, 'VENTA: ' + v.nombre, '$' + v.total]), 
-            ...gastos.filter(g => g.fechaStr === t.toLocaleDateString()).map(g => [g.hora, 'GASTO: ' + g.motivo, '-$' + g.monto]) 
+            ...ventasHoy.map(v => [v.hora, 'VENTA: ' + v.nombre, v.pago, '$' + v.total]), 
+            ...gastos.filter(g => g.fechaStr === hoyStr).map(g => [g.hora, 'GASTO: ' + g.motivo, '-', '-$' + g.monto]) 
         ] 
     });
-
-    doc.save(`Cierre_Caja_${t.toLocaleDateString()}.pdf`);
+    doc.save(`Cierre_${hoyStr.replace(/\//g, '-')}.pdf`);
 };

@@ -39,10 +39,13 @@
                     <span class="icon">📦</span> <span class="label">Inventario</span>
                 </button>
                 <button onclick="showTab('tab-ventas')" class="nav-item">
-                    <span class="icon">💰</span> <span class="label">Punto de Venta</span>
+                    <span class="icon">💰</span> <span class="label">Ventas</span>
                 </button>
                 <button onclick="showTab('tab-gastos')" class="nav-item">
                     <span class="icon">💸</span> <span class="label">Gastos</span>
+                </button>
+                <button onclick="showTab('tab-calculadora')" class="nav-item">
+                    <span class="icon">🧮</span> <span class="label">Calc. Precios</span>
                 </button>
                 <button onclick="showTab('tab-informes')" class="nav-item">
                     <span class="icon">📊</span> <span class="label">Reportes</span>
@@ -60,27 +63,30 @@
             </header>
 
             <main class="dashboard-grid">
+                
                 <section id="tab-productos" class="tab-panel active">
                     <div class="grid-container">
                         <div class="card form-card">
-                            <h3>Nuevo Producto</h3>
+                            <h3>Gestión de Producto</h3>
                             <form id="prod-form">
+                                <input type="hidden" id="p-id-edit"> 
                                 <input type="text" id="p-nombre" placeholder="Nombre" required>
                                 <div class="input-group">
-                                    <input type="number" id="p-stock" placeholder="Stock">
+                                    <input type="number" id="p-stock" placeholder="Stock" required>
                                     <input type="number" id="p-minimo" placeholder="Mínimo" value="10">
                                 </div>
                                 <div class="input-group">
-                                    <input type="number" id="p-costo" placeholder="Costo $">
-                                    <input type="number" id="p-venta" placeholder="Venta $">
+                                    <input type="number" id="p-costo" placeholder="Costo $" required>
+                                    <input type="number" id="p-venta" placeholder="Venta $" required>
                                 </div>
-                                <button type="submit" class="btn-primary">Guardar</button>
+                                <button type="submit" id="btn-save-prod" class="btn-primary">Guardar Producto</button>
+                                <button type="button" id="btn-cancel-edit" class="btn-secondary" style="display: none;" onclick="cancelarEdicion()">Cancelar Edición</button>
                             </form>
                         </div>
                         <div class="card table-card">
                             <div class="scrollable">
                                 <table id="tabla-productos">
-                                    <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th></th></tr></thead>
+                                    <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>Acciones</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
@@ -95,7 +101,7 @@
                             <form id="venta-form">
                                 <select id="v-producto" required></select>
                                 <div class="input-group">
-                                    <input type="number" id="v-cantidad" placeholder="Cant.">
+                                    <input type="number" id="v-cantidad" placeholder="Cant." required>
                                     <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
                                 </div>
                                 <div class="total-container"><span id="display-total">Total: $0.00</span></div>
@@ -104,7 +110,7 @@
                         </div>
                         <div class="card table-card">
                             <table id="tabla-ventas">
-                                <thead><tr><th>Hora</th><th>Producto</th><th>Total</th><th></th></tr></thead>
+                                <thead><tr><th>Hora</th><th>Producto</th><th>Pago</th><th>Total</th><th></th></tr></thead>
                                 <tbody></tbody>
                             </table>
                         </div>
@@ -126,6 +132,26 @@
                                 <thead><tr><th>Hora</th><th>Motivo</th><th>Monto</th><th></th></tr></thead>
                                 <tbody></tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-calculadora" class="tab-panel">
+                    <div class="card form-card" style="max-width: 100%;">
+                        <h3>Calculadora de Ganancia</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Calculá a cuánto vender según tu costo.</p>
+                        <form id="calc-form">
+                            <div class="input-group">
+                                <input type="number" id="c-costo-total" placeholder="Costo Total (ej: 6000)" required>
+                                <input type="number" id="c-cantidad" placeholder="Cantidad (Kilos/Unidades)" required>
+                            </div>
+                            <input type="number" id="c-margen" placeholder="% Ganancia deseada (ej: 33)" required>
+                            <button type="submit" class="btn-primary">Calcular Precio</button>
+                        </form>
+                        <div id="calc-resultado" class="total-container" style="display:none; margin-top: 20px; background: #e3f9e5; border-color: #2ecc71;">
+                            <p>Deberías venderlo a:</p>
+                            <h2 id="res-precio-unitario">$0.00 <small>por unidad/kilo</small></h2>
+                            <p style="font-size: 0.8rem; margin-top: 5px;">Ganancia total estimada: <span id="res-ganancia" style="font-weight:bold;">$0</span></p>
                         </div>
                     </div>
                 </section>

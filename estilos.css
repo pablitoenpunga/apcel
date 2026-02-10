@@ -62,6 +62,7 @@ input, select { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px sol
 .btn-primary { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
 .btn-success { background: var(--success); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
 .btn-warning { background: var(--warning); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
+.btn-secondary { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; }
 
 /* Tablas */
 .scrollable { overflow-x: auto; }
@@ -69,12 +70,17 @@ table { width: 100%; border-collapse: collapse; }
 th { text-align: left; padding: 10px; color: var(--text-light); font-size: 0.7rem; border-bottom: 1px solid #eee; text-transform: uppercase; }
 td { padding: 12px 10px; border-bottom: 1px solid #f9f9f9; font-size: 0.9rem; }
 .badge-ganancia { color: var(--success); font-weight: 700; }
-.btn-del { background: #fee2e2; color: var(--danger); border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.btn-del { background: #fee2e2; color: var(--danger); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; margin-left: 5px; }
+.btn-edit { background: #eef2ff; color: var(--primary); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
 
 /* Pestañas */
 .tab-panel { display: none !important; }
 .tab-panel.active { display: block !important; }
 
+.total-container { background: #eef2ff; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; border: 2px dashed var(--primary); }
+#display-total { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+
 .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .stat-box { background: white; padding: 20px; border-radius: var(--radius); border-left: 4px solid var(--success); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .stat-box p { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-top: 5px; }
+.btn-pdf { background: var(--text); color: white; width: 100%; padding: 15px; margin-top: 20px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; }
