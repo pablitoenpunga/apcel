@@ -69,15 +69,13 @@ function vincularBaseDeDatos() {
 }
 
 function render() {
-    // 1. Productos (RESTAURADO: % GANANCIA)
+    // 1. Productos
     const tbodyP = document.querySelector('#tabla-productos tbody');
     if(tbodyP) {
         tbodyP.innerHTML = '';
         productos.sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
             const esBajo = p.stock <= (p.minimo || 10);
-            // Cálculo de ganancia
             const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
-            
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
                     <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
@@ -134,27 +132,9 @@ function actualizarDashboard() {
     return { netoDia: vDia - gDia, netoMes: vMes - gMes };
 }
 
-// --- LÓGICA DE CALCULADORA ---
-document.getElementById('calc-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const costoTotal = parseFloat(document.getElementById('c-costo-total').value);
-    const cantidad = parseFloat(document.getElementById('c-cantidad').value);
-    const margen = parseFloat(document.getElementById('c-margen').value);
-
-    if (costoTotal > 0 && cantidad > 0) {
-        const costoUnitario = costoTotal / cantidad;
-        const precioVenta = costoUnitario * (1 + (margen / 100));
-        const gananciaTotal = (precioVenta * cantidad) - costoTotal;
-
-        document.getElementById('res-precio-unitario').innerText = `$${Math.ceil(precioVenta).toLocaleString()}`;
-        document.getElementById('res-ganancia').innerText = `$${Math.ceil(gananciaTotal).toLocaleString()}`;
-        document.getElementById('calc-resultado').style.display = 'block';
-    } else {
-        alert("Ingresá valores válidos mayor a 0");
-    }
-});
-
 // --- FORMULARIOS ---
+
+// PRODUCTOS
 document.getElementById('prod-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = {
@@ -189,6 +169,7 @@ window.editarP = (id) => {
         document.getElementById('btn-save-prod').innerText = "Actualizar Producto";
         document.getElementById('btn-cancel-edit').style.display = "block";
         document.getElementById('prod-form').scrollIntoView({ behavior: 'smooth' });
+        showTab('tab-productos');
     }
 };
 
@@ -199,6 +180,7 @@ window.cancelarEdicion = () => {
     document.getElementById('btn-cancel-edit').style.display = "none";
 };
 
+// VENTAS
 document.getElementById('venta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pId = document.getElementById('v-producto').value;
@@ -219,6 +201,67 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
     } else { alert("Stock insuficiente"); }
 });
 
+// COMPRAS (ACTUALIZADO: FUSIÓN CON CALCULADORA)
+document.getElementById('compra-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pId = document.getElementById('c-producto').value;
+    const p = productos.find(x => x.id === pId);
+    const cant = parseInt(document.getElementById('c-cantidad-stock').value);
+    const costoTotal = parseFloat(document.getElementById('c-costo-total-compra').value);
+    const margen = parseFloat(document.getElementById('c-margen-ganancia').value);
+
+    if (p && cant > 0 && costoTotal > 0 && margen >= 0) {
+        const t = new Date();
+        
+        // Cálculos
+        const costoUnitario = costoTotal / cant;
+        const precioVentaNuevo = costoUnitario * (1 + (margen / 100));
+
+        // 1. Actualizar Stock, Costo y Precio de Venta
+        await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { 
+            stock: p.stock + cant,
+            costo: Math.ceil(costoUnitario),
+            venta: Math.ceil(precioVentaNuevo)
+        });
+        
+        // 2. Registrar Gasto
+        await addDoc(collection(db, `usuarios/${currentUser.uid}/gastos`), {
+            motivo: `COMPRA: ${p.nombre} (x${cant})`,
+            monto: costoTotal,
+            fechaStr: t.toLocaleDateString(), mes: t.getMonth(), anio: t.getFullYear(),
+            hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+            timestamp: Date.now()
+        });
+
+        alert("Compra registrada. Precio y Stock actualizados.");
+        e.target.reset();
+        document.getElementById('display-nuevo-precio').innerText = "$0.00";
+    } else { alert("Verificá los datos ingresados"); }
+});
+
+// SIMULADOR PRECIO EN TIEMPO REAL (EN PESTAÑA COMPRAS)
+function simularPrecioCompra() {
+    const cant = parseFloat(document.getElementById('c-cantidad-stock').value);
+    const costoTotal = parseFloat(document.getElementById('c-costo-total-compra').value);
+    const margen = parseFloat(document.getElementById('c-margen-ganancia').value);
+    const display = document.getElementById('display-nuevo-precio');
+
+    if(cant > 0 && costoTotal > 0 && margen >= 0) {
+        const unitario = costoTotal / cant;
+        const precio = unitario * (1 + (margen/100));
+        display.innerText = `$${Math.ceil(precio).toLocaleString()}`;
+    } else {
+        display.innerText = "$0.00";
+    }
+}
+
+// Eventos para simular
+document.getElementById('c-cantidad-stock').addEventListener('input', simularPrecioCompra);
+document.getElementById('c-costo-total-compra').addEventListener('input', simularPrecioCompra);
+document.getElementById('c-margen-ganancia').addEventListener('input', simularPrecioCompra);
+
+
+// GASTOS GENERALES
 document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const t = new Date();
@@ -232,6 +275,7 @@ document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.target.reset();
 });
 
+// ACCIONES BORRAR
 window.borrarP = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/productos`, id)); };
 window.borrarGasto = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, id)); };
 window.anularV = async (idVenta, idProd, cant) => {
@@ -242,13 +286,14 @@ window.anularV = async (idVenta, idProd, cant) => {
     }
 };
 
+// NAVEGACIÓN
 window.showTab = (id) => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     const target = document.getElementById(id);
     if(target) target.classList.add('active');
     
-    const titulos = { 'tab-productos': 'Inventario', 'tab-ventas': 'Ventas', 'tab-gastos': 'Gastos', 'tab-calculadora': 'Calculadora', 'tab-informes': 'Reportes' };
+    const titulos = { 'tab-productos': 'Inventario', 'tab-ventas': 'Ventas', 'tab-compras': 'Compras', 'tab-gastos': 'Gastos', 'tab-informes': 'Reportes' };
     const titleEl = document.getElementById('current-tab-title');
     if(titleEl) titleEl.innerText = titulos[id];
 
@@ -259,11 +304,18 @@ window.showTab = (id) => {
 
 function actualizarSelectores() {
     const s = document.getElementById('v-producto');
-    if(!s) return;
-    const val = s.value;
-    s.innerHTML = '<option value="">Seleccione...</option>';
-    productos.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} (${p.stock})</option>`);
-    s.value = val;
+    const c = document.getElementById('c-producto'); 
+    
+    const llenar = (selector) => {
+        if(!selector) return;
+        const val = selector.value;
+        selector.innerHTML = '<option value="">Seleccione...</option>';
+        productos.forEach(p => selector.innerHTML += `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`);
+        selector.value = val;
+    };
+
+    llenar(s);
+    llenar(c);
 }
 
 function calcularTotal() {
@@ -279,7 +331,7 @@ const inputCant = document.getElementById('v-cantidad');
 if(selectProd) selectProd.addEventListener('change', calcularTotal);
 if(inputCant) inputCant.addEventListener('input', calcularTotal);
 
-// --- PDF COMPLETO (DESGLOSE EFECTIVO/TRANSF) ---
+// PDF REPORT
 window.descargarPDF = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -322,7 +374,7 @@ window.descargarPDF = () => {
         headStyles: { fillColor: [30, 55, 153] },
         body: [ 
             ...ventasHoy.map(v => [v.hora, 'VENTA: ' + v.nombre, v.pago, '$' + v.total]), 
-            ...gastos.filter(g => g.fechaStr === hoyStr).map(g => [g.hora, 'GASTO: ' + g.motivo, '-', '-$' + g.monto]) 
+            ...gastos.filter(g => g.fechaStr === hoyStr).map(g => [g.hora, g.motivo, '-', '-$' + g.monto]) 
         ] 
     });
     doc.save(`Cierre_${hoyStr.replace(/\//g, '-')}.pdf`);

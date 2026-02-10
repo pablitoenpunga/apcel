@@ -3,6 +3,7 @@
     --success: #079992;
     --warning: #f39c12;
     --danger: #eb2f06;
+    --info: #0fbcf9;
     --bg: #f1f2f6;
     --white: #ffffff;
     --text: #2f3542;
@@ -62,6 +63,7 @@ input, select { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px sol
 .btn-primary { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
 .btn-success { background: var(--success); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
 .btn-warning { background: var(--warning); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
+.btn-info { background: var(--info); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; }
 .btn-secondary { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; }
 
 /* Tablas */

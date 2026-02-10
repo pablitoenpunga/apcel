@@ -41,11 +41,11 @@
                 <button onclick="showTab('tab-ventas')" class="nav-item">
                     <span class="icon">💰</span> <span class="label">Ventas</span>
                 </button>
+                <button onclick="showTab('tab-compras')" class="nav-item">
+                    <span class="icon">🚚</span> <span class="label">Compras</span>
+                </button>
                 <button onclick="showTab('tab-gastos')" class="nav-item">
                     <span class="icon">💸</span> <span class="label">Gastos</span>
-                </button>
-                <button onclick="showTab('tab-calculadora')" class="nav-item">
-                    <span class="icon">🧮</span> <span class="label">Calc. Precios</span>
                 </button>
                 <button onclick="showTab('tab-informes')" class="nav-item">
                     <span class="icon">📊</span> <span class="label">Reportes</span>
@@ -117,12 +117,44 @@
                     </div>
                 </section>
 
+                <section id="tab-compras" class="tab-panel">
+                    <div class="grid-container">
+                        <div class="card form-card">
+                            <h3>Reponer Stock y Actualizar Precio</h3>
+                            <form id="compra-form">
+                                <select id="c-producto" required></select>
+                                <div class="input-group">
+                                    <input type="number" id="c-cantidad-stock" placeholder="Cantidad comprada" required>
+                                    <input type="number" id="c-costo-total-compra" placeholder="Costo Total Compra ($)" required>
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" id="c-margen-ganancia" placeholder="% Ganancia deseada" required>
+                                </div>
+                                <div class="total-container" style="background-color: #e3f2fd; border-color: #2196f3;">
+                                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Nuevo Precio Venta Sugerido:</p>
+                                    <span id="display-nuevo-precio" style="font-size: 1.3rem; font-weight: 800; color: #1565c0;">$0.00</span>
+                                </div>
+                                <button type="submit" class="btn-info">Registrar Compra y Actualizar</button>
+                            </form>
+                        </div>
+                        <div class="card">
+                            <h3 style="margin-bottom: 10px;">¿Qué hace esto?</h3>
+                            <ul style="font-size: 0.9rem; color: #555; line-height: 1.6;">
+                                <li>1. Suma el stock nuevo.</li>
+                                <li>2. Actualiza el <strong>Costo</strong> del producto en el sistema.</li>
+                                <li>3. Actualiza el <strong>Precio de Venta</strong> automáticamente según tu % de ganancia.</li>
+                                <li>4. Registra el gasto de la compra en la caja.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="tab-gastos" class="tab-panel">
                     <div class="grid-container">
                         <div class="card form-card">
-                            <h3>Registrar Gasto</h3>
+                            <h3>Registrar Gasto Vario</h3>
                             <form id="gasto-form">
-                                <input type="text" id="g-descripcion" placeholder="Motivo" required>
+                                <input type="text" id="g-descripcion" placeholder="Motivo (ej: Luz, Bolsas)" required>
                                 <input type="number" id="g-monto" placeholder="Monto $" required>
                                 <button type="submit" class="btn-warning">Guardar Gasto</button>
                             </form>
@@ -132,26 +164,6 @@
                                 <thead><tr><th>Hora</th><th>Motivo</th><th>Monto</th><th></th></tr></thead>
                                 <tbody></tbody>
                             </table>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="tab-calculadora" class="tab-panel">
-                    <div class="card form-card" style="max-width: 100%;">
-                        <h3>Calculadora de Ganancia</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Calculá a cuánto vender según tu costo.</p>
-                        <form id="calc-form">
-                            <div class="input-group">
-                                <input type="number" id="c-costo-total" placeholder="Costo Total (ej: 6000)" required>
-                                <input type="number" id="c-cantidad" placeholder="Cantidad (Kilos/Unidades)" required>
-                            </div>
-                            <input type="number" id="c-margen" placeholder="% Ganancia deseada (ej: 33)" required>
-                            <button type="submit" class="btn-primary">Calcular Precio</button>
-                        </form>
-                        <div id="calc-resultado" class="total-container" style="display:none; margin-top: 20px; background: #e3f9e5; border-color: #2ecc71;">
-                            <p>Deberías venderlo a:</p>
-                            <h2 id="res-precio-unitario">$0.00 <small>por unidad/kilo</small></h2>
-                            <p style="font-size: 0.8rem; margin-top: 5px;">Ganancia total estimada: <span id="res-ganancia" style="font-weight:bold;">$0</span></p>
                         </div>
                     </div>
                 </section>
