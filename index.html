@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="estilos.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
 
@@ -41,6 +42,9 @@
                 <button onclick="showTab('tab-ventas')" class="nav-item">
                     <span class="icon">💰</span> <span class="label">Ventas</span>
                 </button>
+                <button onclick="showTab('tab-clientes')" class="nav-item">
+                    <span class="icon">👥</span> <span class="label">Clientes</span>
+                </button>
                 <button onclick="showTab('tab-compras')" class="nav-item">
                     <span class="icon">🚚</span> <span class="label">Compras</span>
                 </button>
@@ -64,13 +68,25 @@
 
             <main class="dashboard-grid">
                 
+                <div id="scanner-container" style="display:none;" class="scanner-overlay">
+                    <div class="scanner-box">
+                        <h3>Escaneando...</h3>
+                        <div id="reader" style="width: 100%;"></div>
+                        <button onclick="cerrarScanner()" class="btn-del" style="margin-top:10px; width:100%">Cerrar Cámara</button>
+                    </div>
+                </div>
+
                 <section id="tab-productos" class="tab-panel active">
                     <div class="grid-container">
                         <div class="card form-card">
                             <h3>Gestión de Producto</h3>
                             <form id="prod-form">
                                 <input type="hidden" id="p-id-edit"> 
-                                <input type="text" id="p-nombre" placeholder="Nombre" required>
+                                <div class="input-group">
+                                    <input type="text" id="p-codigo" placeholder="Código de Barras (Opcional)">
+                                    <button type="button" onclick="iniciarScanner('p-codigo')" class="btn-icon">📷</button>
+                                </div>
+                                <input type="text" id="p-nombre" placeholder="Nombre del Producto" required>
                                 <div class="input-group">
                                     <input type="number" id="p-stock" placeholder="Stock" required>
                                     <input type="number" id="p-minimo" placeholder="Mínimo" value="10">
@@ -86,7 +102,7 @@
                         <div class="card table-card">
                             <div class="scrollable">
                                 <table id="tabla-productos">
-                                    <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th>Acciones</th></tr></thead>
+                                    <thead><tr><th>Cod</th><th>Item</th><th>Stock</th><th>Venta</th><th>% Gan.</th><th>Acciones</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
@@ -97,13 +113,29 @@
                 <section id="tab-ventas" class="tab-panel">
                     <div class="grid-container">
                         <div class="card form-card">
-                            <h3>Registrar Venta</h3>
+                            <h3>Punto de Venta</h3>
+                            <div class="input-group" style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                                <input type="text" id="scan-venta" placeholder="Escanear Código Aquí..." autofocus>
+                                <button type="button" onclick="iniciarScanner('scan-venta')" class="btn-icon">📷</button>
+                            </div>
+                            
                             <form id="venta-form">
                                 <select id="v-producto" required></select>
                                 <div class="input-group">
-                                    <input type="number" id="v-cantidad" placeholder="Cant." required>
-                                    <select id="v-pago"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select>
+                                    <input type="number" id="v-cantidad" placeholder="Cant." value="1" required>
+                                    <select id="v-pago" onchange="verificarFiado()">
+                                        <option value="Efectivo">Efectivo</option>
+                                        <option value="Transferencia">Transferencia</option>
+                                        <option value="Cuenta Corriente">Cuenta Corriente (Fiado)</option>
+                                    </select>
                                 </div>
+                                
+                                <div id="div-cliente-fiado" style="display: none;">
+                                    <select id="v-cliente">
+                                        <option value="">Seleccione Cliente...</option>
+                                    </select>
+                                </div>
+
                                 <div class="total-container"><span id="display-total">Total: $0.00</span></div>
                                 <button type="submit" class="btn-success">Confirmar Venta</button>
                             </form>
@@ -117,34 +149,47 @@
                     </div>
                 </section>
 
+                <section id="tab-clientes" class="tab-panel">
+                    <div class="grid-container">
+                        <div class="card form-card">
+                            <h3>Nuevo Cliente</h3>
+                            <form id="cliente-form">
+                                <input type="text" id="cli-nombre" placeholder="Nombre y Apellido" required>
+                                <input type="tel" id="cli-telefono" placeholder="Teléfono / WhatsApp">
+                                <button type="submit" class="btn-primary">Registrar Cliente</button>
+                            </form>
+                        </div>
+                        <div class="card table-card">
+                            <h3>Cuentas Corrientes</h3>
+                            <div class="scrollable">
+                                <table id="tabla-clientes">
+                                    <thead><tr><th>Cliente</th><th>Teléfono</th><th>Deuda</th><th>Acciones</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="tab-compras" class="tab-panel">
                     <div class="grid-container">
                         <div class="card form-card">
-                            <h3>Reponer Stock y Actualizar Precio</h3>
+                            <h3>Reponer Stock</h3>
                             <form id="compra-form">
                                 <select id="c-producto" required></select>
                                 <div class="input-group">
-                                    <input type="number" id="c-cantidad-stock" placeholder="Cantidad comprada" required>
-                                    <input type="number" id="c-costo-total-compra" placeholder="Costo Total Compra ($)" required>
+                                    <input type="number" id="c-cantidad-stock" placeholder="Cantidad" required>
+                                    <input type="number" id="c-costo-total-compra" placeholder="Costo Total ($)" required>
                                 </div>
                                 <div class="input-group">
                                     <input type="number" id="c-margen-ganancia" placeholder="% Ganancia deseada" required>
                                 </div>
                                 <div class="total-container" style="background-color: #e3f2fd; border-color: #2196f3;">
-                                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Nuevo Precio Venta Sugerido:</p>
+                                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Nuevo Precio Sugerido:</p>
                                     <span id="display-nuevo-precio" style="font-size: 1.3rem; font-weight: 800; color: #1565c0;">$0.00</span>
                                 </div>
-                                <button type="submit" class="btn-info">Registrar Compra y Actualizar</button>
+                                <button type="submit" class="btn-info">Registrar Compra</button>
                             </form>
-                        </div>
-                        <div class="card">
-                            <h3 style="margin-bottom: 10px;">¿Qué hace esto?</h3>
-                            <ul style="font-size: 0.9rem; color: #555; line-height: 1.6;">
-                                <li>1. Suma el stock nuevo.</li>
-                                <li>2. Actualiza el <strong>Costo</strong> del producto en el sistema.</li>
-                                <li>3. Actualiza el <strong>Precio de Venta</strong> automáticamente según tu % de ganancia.</li>
-                                <li>4. Registra el gasto de la compra en la caja.</li>
-                            </ul>
                         </div>
                     </div>
                 </section>
@@ -152,9 +197,9 @@
                 <section id="tab-gastos" class="tab-panel">
                     <div class="grid-container">
                         <div class="card form-card">
-                            <h3>Registrar Gasto Vario</h3>
+                            <h3>Registrar Gasto</h3>
                             <form id="gasto-form">
-                                <input type="text" id="g-descripcion" placeholder="Motivo (ej: Luz, Bolsas)" required>
+                                <input type="text" id="g-descripcion" placeholder="Motivo" required>
                                 <input type="number" id="g-monto" placeholder="Monto $" required>
                                 <button type="submit" class="btn-warning">Guardar Gasto</button>
                             </form>
