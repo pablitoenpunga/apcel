@@ -83,9 +83,8 @@ function render() {
             const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
             const codigoStr = p.codigo ? `<br><small style="color:#666">${p.codigo}</small>` : '';
             
-            // Visualizar si es Unidad o Gramos
-            const tipoLabel = p.tipo === 'granel' ? 'g.' : 'u.';
-            const precioLabel = p.tipo === 'granel' ? `/ Kg` : ``;
+            const tipoLabel = p.tipo === 'gramos' ? 'g.' : 'u.';
+            const precioLabel = p.tipo === 'gramos' ? `/ Kg` : ``;
 
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
@@ -107,7 +106,6 @@ function render() {
         tbodyV.innerHTML = '';
         [...ventas].sort((a,b) => b.timestamp - a.timestamp).slice(0, 15).forEach(v => {
             const pagoCorto = v.pago === 'Transferencia' ? 'Transf.' : v.pago;
-            // Para mostrar qué compró (Ej: 250g o 2u)
             const sufijo = (v.esGranel) ? 'g.' : 'u.';
             tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.cantidad}${sufijo} ${v.nombre}</td><td>${pagoCorto}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
         });
@@ -261,7 +259,7 @@ document.getElementById('prod-form').addEventListener('submit', async (e) => {
     const data = {
         codigo: document.getElementById('p-codigo').value || "",
         nombre: document.getElementById('p-nombre').value,
-        tipo: document.getElementById('p-tipo').value || "unidad", // Guarda si es granel o unidad
+        tipo: document.getElementById('p-tipo').value || "unidad",
         stock: parseInt(document.getElementById('p-stock').value) || 0,
         minimo: parseInt(document.getElementById('p-minimo').value) || 0,
         costo: parseFloat(document.getElementById('p-costo').value) || 0,
@@ -317,9 +315,8 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
     if (p && p.stock >= cant) {
         const t = new Date();
         
-        // MATEMÁTICA PARA DIETÉTICA (Si es granel, calcula proporcional)
-        const totalVenta = p.tipo === 'granel' ? (p.venta / 1000) * cant : p.venta * cant;
-        const totalCostoParaGanancia = p.tipo === 'granel' ? (p.costo / 1000) * cant : p.costo * cant;
+        const totalVenta = p.tipo === 'gramos' ? (p.venta / 1000) * cant : p.venta * cant;
+        const totalCostoParaGanancia = p.tipo === 'gramos' ? (p.costo / 1000) * cant : p.costo * cant;
 
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
             idProd: pId, 
@@ -327,7 +324,7 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
             total: Math.ceil(totalVenta), 
             cantidad: cant, 
             costo: Math.ceil(totalCostoParaGanancia),
-            esGranel: p.tipo === 'granel', // Para saber si le ponemos la 'g' en la tabla
+            esGranel: p.tipo === 'gramos', 
             pago: tipoPago, 
             fechaStr: t.toLocaleDateString(),
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
@@ -365,10 +362,8 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
         const costoUnitario = costoTotal / cant;
         const precioVentaNuevo = costoUnitario * (1 + (margen / 100));
 
-        // En granel, la "cant" son gramos. Si compró 10.000 gramos, el costoUnitario es el costo por gramo.
-        // Multiplicamos por 1000 para guardar el precio por Kilo en Firebase.
-        const guardarCosto = p.tipo === 'granel' ? (costoUnitario * 1000) : costoUnitario;
-        const guardarVenta = p.tipo === 'granel' ? (precioVentaNuevo * 1000) : precioVentaNuevo;
+        const guardarCosto = p.tipo === 'gramos' ? (costoUnitario * 1000) : costoUnitario;
+        const guardarVenta = p.tipo === 'gramos' ? (precioVentaNuevo * 1000) : precioVentaNuevo;
 
         await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { 
             stock: p.stock + cant,
@@ -376,7 +371,7 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
             venta: Math.ceil(guardarVenta)
         });
         
-        const sufijo = p.tipo === 'granel' ? 'g.' : 'u.';
+        const sufijo = p.tipo === 'gramos' ? 'g.' : 'u.';
         await addDoc(collection(db, `usuarios/${currentUser.uid}/gastos`), {
             motivo: `COMPRA: ${p.nombre} (${cant}${sufijo})`,
             monto: costoTotal,
@@ -403,11 +398,10 @@ function simularPrecioCompra() {
         const unitario = costoTotal / cant;
         const precio = unitario * (1 + (margen/100));
         
-        // Si es granel, mostramos el precio proyectado por 1 Kg para que el usuario entienda
-        const mostrarPrecio = p.tipo === 'granel' ? (precio * 1000) : precio;
-        const etiqueta = p.tipo === 'granel' ? ' x Kg' : '';
+        const mostrarPrecio = p.tipo === 'gramos' ? (precio * 1000) : precio;
+        const etiqueta = p.tipo === 'gramos' ? ' x Kg' : '';
         
-        display.innerText = `$${Math.ceil(mostrarPrecio).toLocaleString()} ${etiqueta}`;
+        display.innerText = `$${Math.ceil(mostrarPrecio).toLocaleString()}${etiqueta}`;
     } else {
         display.innerText = "$0.00";
     }
@@ -491,23 +485,22 @@ function actualizarSelectores() {
     };
 
     llenar(s, productos, (p) => {
-        const sufijo = p.tipo === 'granel' ? 'x Kg' : 'c/u';
+        const sufijo = p.tipo === 'gramos' ? 'x Kg' : 'c/u';
         return `${p.nombre} ($${p.venta} ${sufijo})`;
     });
     
     llenar(c, productos, (p) => {
-        const unidad = p.tipo === 'granel' ? 'g.' : 'u.';
+        const unidad = p.tipo === 'gramos' ? 'g.' : 'u.';
         return `${p.nombre} (Stock: ${p.stock}${unidad})`;
     });
     
     llenar(cli, clientes, (cl) => cl.nombre);
 
-    // Cambiar placeholder de cantidad según tipo
     if(s) {
         s.addEventListener('change', (e) => {
             const prod = productos.find(x => x.id === e.target.value);
             const inputCant = document.getElementById('v-cantidad');
-            if(prod && prod.tipo === 'granel') {
+            if(prod && prod.tipo === 'gramos') {
                 inputCant.placeholder = "Gramos (Ej: 250)";
             } else {
                 inputCant.placeholder = "Cant. Unidades";
@@ -524,7 +517,7 @@ function calcularTotal() {
     
     if (totalEl) {
         if (p && c > 0) {
-            const total = p.tipo === 'granel' ? (p.venta / 1000) * c : p.venta * c;
+            const total = p.tipo === 'gramos' ? (p.venta / 1000) * c : p.venta * c;
             totalEl.innerText = `Total: $${Math.ceil(total).toLocaleString()}`;
         } else {
             totalEl.innerText = "Total: $0.00";
