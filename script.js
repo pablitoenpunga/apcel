@@ -20,9 +20,9 @@ let currentUser = null;
 let productos = [];
 let ventas = [];
 let gastos = [];
-let clientes = []; // Nueva lista
+let clientes = [];
 let editandoId = null;
-let html5QrCode = null; // Para el scanner
+let html5QrCode = null;
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -56,22 +56,18 @@ window.cerrarSesion = () => signOut(auth);
 
 function vincularBaseDeDatos() {
     const path = `usuarios/${currentUser.uid}`;
-    // Productos
     onSnapshot(collection(db, path, "productos"), (snap) => {
         productos = snap.docs.map(d => ({id: d.id, ...d.data()}));
         render();
     });
-    // Ventas
     onSnapshot(collection(db, path, "ventas"), (snap) => {
         ventas = snap.docs.map(d => ({id: d.id, ...d.data()}));
         render();
     });
-    // Gastos
     onSnapshot(collection(db, path, "gastos"), (snap) => {
         gastos = snap.docs.map(d => ({id: d.id, ...d.data()}));
         render();
     });
-    // Clientes (NUEVO)
     onSnapshot(collection(db, path, "clientes"), (snap) => {
         clientes = snap.docs.map(d => ({id: d.id, ...d.data()}));
         render();
@@ -79,7 +75,6 @@ function vincularBaseDeDatos() {
 }
 
 function render() {
-    // 1. Productos
     const tbodyP = document.querySelector('#tabla-productos tbody');
     if(tbodyP) {
         tbodyP.innerHTML = '';
@@ -102,7 +97,6 @@ function render() {
         });
     }
 
-    // 2. Ventas
     const tbodyV = document.querySelector('#tabla-ventas tbody');
     if(tbodyV) {
         tbodyV.innerHTML = '';
@@ -112,7 +106,6 @@ function render() {
         });
     }
 
-    // 3. Gastos
     const tbodyG = document.querySelector('#tabla-gastos tbody');
     if(tbodyG) {
         tbodyG.innerHTML = '';
@@ -121,7 +114,6 @@ function render() {
         });
     }
 
-    // 4. Clientes (NUEVO)
     const tbodyC = document.querySelector('#tabla-clientes tbody');
     if(tbodyC) {
         tbodyC.innerHTML = '';
@@ -150,7 +142,6 @@ function actualizarDashboard() {
     const mes = ahora.getMonth();
     const anio = ahora.getFullYear();
 
-    // Filtramos ventas que NO sean Cuenta Corriente para la caja diaria
     const ventasReales = ventas.filter(v => v.pago !== 'Cuenta Corriente');
 
     const vDia = ventasReales.filter(v => v.fechaStr === hoyStr).reduce((s, v) => s + v.total, 0);
@@ -166,7 +157,7 @@ function actualizarDashboard() {
     return { netoDia: vDia - gDia, netoMes: vMes - gMes };
 }
 
-// --- ESCÁNER DE CÓDIGO DE BARRAS ---
+// --- ESCÁNER ---
 window.iniciarScanner = (targetInputId) => {
     document.getElementById('scanner-container').style.display = 'flex';
     html5QrCode = new Html5Qrcode("reader");
@@ -174,12 +165,11 @@ window.iniciarScanner = (targetInputId) => {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
-            // Éxito
             document.getElementById(targetInputId).value = decodedText;
             if(targetInputId === 'scan-venta') buscarPorCodigo(decodedText);
             cerrarScanner();
         },
-        (errorMessage) => { /* ignora errores de frame */ }
+        (errorMessage) => { }
     ).catch(err => { alert("Error al abrir cámara"); });
 };
 
@@ -194,21 +184,18 @@ window.cerrarScanner = () => {
     }
 };
 
-// Buscar producto por código (Lector USB o Cámara)
 function buscarPorCodigo(codigo) {
     const p = productos.find(x => x.codigo === codigo);
     if(p) {
         document.getElementById('v-producto').value = p.id;
         calcularTotal();
-        // Feedback visual
         document.getElementById('scan-venta').value = '';
         document.getElementById('v-cantidad').focus();
     } else {
-        alert("Producto no encontrado con ese código");
+        alert("Producto no encontrado");
     }
 }
 
-// Evento para Lector USB (Enter)
 document.getElementById('scan-venta').addEventListener('keydown', (e) => {
     if(e.key === 'Enter') {
         e.preventDefault();
@@ -216,7 +203,7 @@ document.getElementById('scan-venta').addEventListener('keydown', (e) => {
     }
 });
 
-// --- CLIENTES (FIADO) ---
+// --- CLIENTES ---
 document.getElementById('cliente-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     await addDoc(collection(db, `usuarios/${currentUser.uid}/clientes`), {
@@ -249,32 +236,25 @@ window.pagarDeuda = async (id, deudaActual) => {
         const pago = parseFloat(monto);
         const t = new Date();
         
-        // 1. Restar deuda
-        await updateDoc(doc(db, `usuarios/${currentUser.uid}/clientes`, id), { 
-            deuda: deudaActual - pago 
-        });
+        await updateDoc(doc(db, `usuarios/${currentUser.uid}/clientes`, id), { deuda: deudaActual - pago });
 
-        // 2. Registrar ingreso en caja (Como una venta especial para que cuadre la caja)
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
-            idProd: 'PAGO_DEUDA', nombre: 'COBRO DEUDA CLIENTE', total: pago, cantidad: 1,
+            idProd: 'PAGO_DEUDA', nombre: 'COBRO DEUDA CLIENTE', total: pago, cantidad: 1, costo: 0,
             pago: 'Efectivo', fechaStr: t.toLocaleDateString(),
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
             timestamp: Date.now()
         });
-        alert("Pago registrado y deuda actualizada.");
+        alert("Pago registrado.");
     }
 };
 
 window.borrarCliente = async (id) => { if(confirm("¿Borrar cliente?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/clientes`, id)); };
 
-
-// --- FORMULARIOS EXISTENTES ---
-
-// PRODUCTOS (con código de barras)
+// --- PRODUCTOS ---
 document.getElementById('prod-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = {
-        codigo: document.getElementById('p-codigo').value || "", // Nuevo campo
+        codigo: document.getElementById('p-codigo').value || "",
         nombre: document.getElementById('p-nombre').value,
         stock: parseInt(document.getElementById('p-stock').value) || 0,
         minimo: parseInt(document.getElementById('p-minimo').value) || 0,
@@ -318,7 +298,7 @@ window.cancelarEdicion = () => {
     document.getElementById('btn-cancel-edit').style.display = "none";
 };
 
-// VENTAS (Con lógica Fiado)
+// --- VENTAS ---
 document.getElementById('venta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pId = document.getElementById('v-producto').value;
@@ -331,18 +311,16 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
         const t = new Date();
         const totalVenta = p.venta * cant;
 
-        // Registrar Venta
+        // GUARDAMOS EL COSTO EN LA VENTA PARA CALCULAR LA GANANCIA LUEGO
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
-            idProd: pId, nombre: p.nombre, total: totalVenta, cantidad: cant,
+            idProd: pId, nombre: p.nombre, total: totalVenta, cantidad: cant, costo: p.costo,
             pago: tipoPago, fechaStr: t.toLocaleDateString(),
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
             timestamp: Date.now()
         });
 
-        // Descontar Stock
         await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { stock: p.stock - cant });
 
-        // Si es FIADO, sumar deuda al cliente
         if(tipoPago === 'Cuenta Corriente' && clienteId) {
             const cli = clientes.find(c => c.id === clienteId);
             if(cli) {
@@ -354,11 +332,11 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
 
         e.target.reset();
         document.getElementById('display-total').innerText = "Total: $0.00";
-        verificarFiado(); // Resetear vista
+        verificarFiado(); 
     } else { alert("Stock insuficiente"); }
 });
 
-// COMPRAS
+// --- COMPRAS ---
 document.getElementById('compra-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pId = document.getElementById('c-producto').value;
@@ -392,7 +370,6 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
     } else { alert("Verificá los datos"); }
 });
 
-// SIMULADOR
 function simularPrecioCompra() {
     const cant = parseFloat(document.getElementById('c-cantidad-stock').value);
     const costoTotal = parseFloat(document.getElementById('c-costo-total-compra').value);
@@ -411,7 +388,7 @@ document.getElementById('c-cantidad-stock').addEventListener('input', simularPre
 document.getElementById('c-costo-total-compra').addEventListener('input', simularPrecioCompra);
 document.getElementById('c-margen-ganancia').addEventListener('input', simularPrecioCompra);
 
-// GASTOS
+// --- GASTOS ---
 document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const t = new Date();
@@ -425,7 +402,7 @@ document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.target.reset();
 });
 
-// ELIMINAR
+// --- ELIMINAR / REINICIAR MES ---
 window.borrarP = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/productos`, id)); };
 window.borrarGasto = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, id)); };
 window.anularV = async (idVenta, idProd, cant) => {
@@ -433,6 +410,30 @@ window.anularV = async (idVenta, idProd, cant) => {
         await deleteDoc(doc(db, `usuarios/${currentUser.uid}/ventas`, idVenta));
         const p = productos.find(x => x.id === idProd);
         if(p) await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, idProd), { stock: p.stock + cant });
+    }
+};
+
+window.reiniciarMes = async () => {
+    const codigo = prompt("¡ATENCIÓN! Esto borrará todas las VENTAS y GASTOS de este mes. Escribí la palabra BORRAR para confirmar:");
+    if (codigo === "BORRAR") {
+        const t = new Date();
+        const mesActual = t.getMonth();
+        const anioActual = t.getFullYear();
+
+        const ventasMes = ventas.filter(v => v.mes === mesActual && v.anio === anioActual);
+        const gastosMes = gastos.filter(g => g.mes === mesActual && g.anio === anioActual);
+
+        if(confirm(`Se van a eliminar ${ventasMes.length} ventas y ${gastosMes.length} gastos. El inventario y los clientes NO se borran. ¿Proceder?`)) {
+            for (const v of ventasMes) {
+                await deleteDoc(doc(db, `usuarios/${currentUser.uid}/ventas`, v.id));
+            }
+            for (const g of gastosMes) {
+                await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, g.id));
+            }
+            alert("¡Datos del mes reiniciados correctamente!");
+        }
+    } else {
+        alert("Operación cancelada.");
     }
 };
 
@@ -482,7 +483,7 @@ const inputCant = document.getElementById('v-cantidad');
 if(selectProd) selectProd.addEventListener('change', calcularTotal);
 if(inputCant) inputCant.addEventListener('input', calcularTotal);
 
-// PDF
+// --- PDF CON GANANCIA REAL ---
 window.descargarPDF = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -492,9 +493,19 @@ window.descargarPDF = () => {
 
     const ventasHoy = ventas.filter(v => v.fechaStr === hoyStr);
     
-    // El PDF solo suma lo que entró en caja (Efectivo y Transferencia) para no mentir con la plata real
     const totalEfectivo = ventasHoy.filter(v => v.pago === 'Efectivo').reduce((s, v) => s + v.total, 0);
     const totalTransf = ventasHoy.filter(v => v.pago === 'Transferencia').reduce((s, v) => s + v.total, 0);
+    const totalFiado = ventasHoy.filter(v => v.pago === 'Cuenta Corriente').reduce((s, v) => s + v.total, 0);
+
+    // CÁLCULO DE GANANCIA PURA (Ventas - Costos - Gastos)
+    let costoTotalMercaderiaVendida = 0;
+    ventasHoy.forEach(v => {
+        // Usa el costo guardado en la venta, o si es una venta vieja, busca el producto
+        const costoUnit = v.costo !== undefined ? v.costo : (productos.find(p => p.id === v.idProd)?.costo || 0);
+        costoTotalMercaderiaVendida += (costoUnit * v.cantidad);
+    });
+
+    const gananciaNetaPura = b.netoDia - costoTotalMercaderiaVendida;
 
     doc.setFontSize(22);
     doc.setTextColor(30, 55, 153);
@@ -507,17 +518,27 @@ window.descargarPDF = () => {
     doc.setDrawColor(200);
     doc.line(14, 32, 196, 32);
     
+    // Resumen de Caja y Ganancia
     doc.setFontSize(14);
     doc.setTextColor(0);
-    doc.text(`CAJA NETA HOY (Sin Fiado): $${b.netoDia.toLocaleString()}`, 14, 42);
+    doc.text(`Ingresos Brutos en Caja: $${b.netoDia.toLocaleString()}`, 14, 42);
     
     doc.setFontSize(11);
     doc.setTextColor(50);
-    doc.text(`• Efectivo: $${totalEfectivo.toLocaleString()}`, 14, 50);
-    doc.text(`• Transf: $${totalTransf.toLocaleString()}`, 14, 56);
+    doc.text(`• Efectivo: $${totalEfectivo.toLocaleString()}`, 14, 48);
+    doc.text(`• Transf: $${totalTransf.toLocaleString()}`, 14, 54);
+    doc.text(`(Mercadería entregada en Fiado: $${totalFiado.toLocaleString()})`, 14, 60);
     
+    // El número mágico (Ganancia Real)
+    doc.setFontSize(14);
+    doc.setTextColor(7, 153, 146);
+    doc.text(`GANANCIA NETA REAL (Bolsillo): $${gananciaNetaPura.toLocaleString()}`, 14, 72);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`* Ya descuenta el costo de la mercadería vendida (-$${costoTotalMercaderiaVendida}) y los gastos del día.`, 14, 78);
+
     doc.autoTable({ 
-        startY: 75, 
+        startY: 85, 
         head: [['Hora', 'Item', 'Pago', 'Monto']], 
         headStyles: { fillColor: [30, 55, 153] },
         body: [ 

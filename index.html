@@ -216,10 +216,12 @@
                 <section id="tab-informes" class="tab-panel">
                     <div class="card report-card large">
                         <div class="stats-row">
-                            <div class="stat-box"><h4>Hoy</h4><p id="stat-dia">$0</p></div>
-                            <div class="stat-box"><h4>Este Mes</h4><p id="stat-mes">$0</p></div>
+                            <div class="stat-box"><h4>Caja Diaria</h4><p id="stat-dia">$0</p></div>
+                            <div class="stat-box"><h4>Caja Mensual</h4><p id="stat-mes">$0</p></div>
                         </div>
-                        <button onclick="descargarPDF()" class="btn-pdf">Descargar Cierre Diario (PDF)</button>
+                        <button onclick="descargarPDF()" class="btn-pdf" style="margin-bottom: 15px;">Descargar Cierre Diario (PDF)</button>
+                        
+                        <button onclick="reiniciarMes()" class="btn-del" style="width: 100%; padding: 15px; font-size: 1rem; border-radius: 12px; font-weight: bold; border: 1px solid var(--danger);">⚠️ Reiniciar Datos del Mes</button>
                     </div>
                 </section>
             </main>
