@@ -87,13 +87,19 @@
                                     <button type="button" onclick="iniciarScanner('p-codigo')" class="btn-icon">📷</button>
                                 </div>
                                 <input type="text" id="p-nombre" placeholder="Nombre del Producto" required>
+                                
+                                <select id="p-tipo" required style="margin-bottom: 12px;">
+                                    <option value="unidad">Se vende por Unidad (Ej: Alfajor)</option>
+                                    <option value="granel">Se vende a Granel / Peso (Ej: Nueces)</option>
+                                </select>
+
                                 <div class="input-group">
-                                    <input type="number" id="p-stock" placeholder="Stock" required>
+                                    <input type="number" id="p-stock" placeholder="Stock Total (Unid. o Gramos)" required>
                                     <input type="number" id="p-minimo" placeholder="Mínimo" value="10">
                                 </div>
                                 <div class="input-group">
-                                    <input type="number" id="p-costo" placeholder="Costo $" required>
-                                    <input type="number" id="p-venta" placeholder="Venta $" required>
+                                    <input type="number" id="p-costo" placeholder="Costo (X Unid. o X Kilo) $" required>
+                                    <input type="number" id="p-venta" placeholder="Venta (X Unid. o X Kilo) $" required>
                                 </div>
                                 <button type="submit" id="btn-save-prod" class="btn-primary">Guardar Producto</button>
                                 <button type="button" id="btn-cancel-edit" class="btn-secondary" style="display: none;" onclick="cancelarEdicion()">Cancelar Edición</button>
@@ -122,7 +128,7 @@
                             <form id="venta-form">
                                 <select id="v-producto" required></select>
                                 <div class="input-group">
-                                    <input type="number" id="v-cantidad" placeholder="Cant." value="1" required>
+                                    <input type="number" id="v-cantidad" placeholder="Unid. / Gramos" value="1" required>
                                     <select id="v-pago" onchange="verificarFiado()">
                                         <option value="Efectivo">Efectivo</option>
                                         <option value="Transferencia">Transferencia</option>
@@ -178,7 +184,7 @@
                             <form id="compra-form">
                                 <select id="c-producto" required></select>
                                 <div class="input-group">
-                                    <input type="number" id="c-cantidad-stock" placeholder="Cantidad" required>
+                                    <input type="number" id="c-cantidad-stock" placeholder="Cant. o Gramos" required>
                                     <input type="number" id="c-costo-total-compra" placeholder="Costo Total ($)" required>
                                 </div>
                                 <div class="input-group">
@@ -220,7 +226,6 @@
                             <div class="stat-box"><h4>Caja Mensual</h4><p id="stat-mes">$0</p></div>
                         </div>
                         <button onclick="descargarPDF()" class="btn-pdf" style="margin-bottom: 15px;">Descargar Cierre Diario (PDF)</button>
-                        
                         <button onclick="reiniciarMes()" class="btn-del" style="width: 100%; padding: 15px; font-size: 1rem; border-radius: 12px; font-weight: bold; border: 1px solid var(--danger);">⚠️ Reiniciar Datos del Mes</button>
                     </div>
                 </section>

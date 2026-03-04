@@ -82,12 +82,17 @@ function render() {
             const esBajo = p.stock <= (p.minimo || 10);
             const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
             const codigoStr = p.codigo ? `<br><small style="color:#666">${p.codigo}</small>` : '';
+            
+            // Visualizar si es Unidad o Gramos
+            const tipoLabel = p.tipo === 'granel' ? 'g.' : 'u.';
+            const precioLabel = p.tipo === 'granel' ? `/ Kg` : ``;
+
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
                     <td>${codigoStr}</td>
                     <td>${p.nombre} ${esBajo ? '⚠️' : ''}</td>
-                    <td>${p.stock}</td>
-                    <td>$${p.venta}</td>
+                    <td>${p.stock} ${tipoLabel}</td>
+                    <td>$${p.venta} <small>${precioLabel}</small></td>
                     <td class="badge-ganancia">${ganancia}%</td>
                     <td>
                         <button onclick="editarP('${p.id}')" class="btn-edit">✏️</button>
@@ -102,7 +107,9 @@ function render() {
         tbodyV.innerHTML = '';
         [...ventas].sort((a,b) => b.timestamp - a.timestamp).slice(0, 15).forEach(v => {
             const pagoCorto = v.pago === 'Transferencia' ? 'Transf.' : v.pago;
-            tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.nombre}</td><td>${pagoCorto}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
+            // Para mostrar qué compró (Ej: 250g o 2u)
+            const sufijo = (v.esGranel) ? 'g.' : 'u.';
+            tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.cantidad}${sufijo} ${v.nombre}</td><td>${pagoCorto}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
         });
     }
 
@@ -235,9 +242,7 @@ window.pagarDeuda = async (id, deudaActual) => {
     if(monto && parseFloat(monto) > 0) {
         const pago = parseFloat(monto);
         const t = new Date();
-        
         await updateDoc(doc(db, `usuarios/${currentUser.uid}/clientes`, id), { deuda: deudaActual - pago });
-
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
             idProd: 'PAGO_DEUDA', nombre: 'COBRO DEUDA CLIENTE', total: pago, cantidad: 1, costo: 0,
             pago: 'Efectivo', fechaStr: t.toLocaleDateString(),
@@ -256,6 +261,7 @@ document.getElementById('prod-form').addEventListener('submit', async (e) => {
     const data = {
         codigo: document.getElementById('p-codigo').value || "",
         nombre: document.getElementById('p-nombre').value,
+        tipo: document.getElementById('p-tipo').value || "unidad", // Guarda si es granel o unidad
         stock: parseInt(document.getElementById('p-stock').value) || 0,
         minimo: parseInt(document.getElementById('p-minimo').value) || 0,
         costo: parseFloat(document.getElementById('p-costo').value) || 0,
@@ -278,6 +284,7 @@ window.editarP = (id) => {
     if(p) {
         document.getElementById('p-codigo').value = p.codigo || "";
         document.getElementById('p-nombre').value = p.nombre;
+        document.getElementById('p-tipo').value = p.tipo || "unidad";
         document.getElementById('p-stock').value = p.stock;
         document.getElementById('p-minimo').value = p.minimo;
         document.getElementById('p-costo').value = p.costo;
@@ -303,18 +310,26 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pId = document.getElementById('v-producto').value;
     const p = productos.find(x => x.id === pId);
-    const cant = parseInt(document.getElementById('v-cantidad').value);
+    const cant = parseFloat(document.getElementById('v-cantidad').value);
     const tipoPago = document.getElementById('v-pago').value;
     const clienteId = document.getElementById('v-cliente').value;
 
     if (p && p.stock >= cant) {
         const t = new Date();
-        const totalVenta = p.venta * cant;
+        
+        // MATEMÁTICA PARA DIETÉTICA (Si es granel, calcula proporcional)
+        const totalVenta = p.tipo === 'granel' ? (p.venta / 1000) * cant : p.venta * cant;
+        const totalCostoParaGanancia = p.tipo === 'granel' ? (p.costo / 1000) * cant : p.costo * cant;
 
-        // GUARDAMOS EL COSTO EN LA VENTA PARA CALCULAR LA GANANCIA LUEGO
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
-            idProd: pId, nombre: p.nombre, total: totalVenta, cantidad: cant, costo: p.costo,
-            pago: tipoPago, fechaStr: t.toLocaleDateString(),
+            idProd: pId, 
+            nombre: p.nombre, 
+            total: Math.ceil(totalVenta), 
+            cantidad: cant, 
+            costo: Math.ceil(totalCostoParaGanancia),
+            esGranel: p.tipo === 'granel', // Para saber si le ponemos la 'g' en la tabla
+            pago: tipoPago, 
+            fechaStr: t.toLocaleDateString(),
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
             timestamp: Date.now()
         });
@@ -333,7 +348,7 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
         e.target.reset();
         document.getElementById('display-total').innerText = "Total: $0.00";
         verificarFiado(); 
-    } else { alert("Stock insuficiente"); }
+    } else { alert("Stock insuficiente o ingresá una cantidad válida"); }
 });
 
 // --- COMPRAS ---
@@ -341,7 +356,7 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pId = document.getElementById('c-producto').value;
     const p = productos.find(x => x.id === pId);
-    const cant = parseInt(document.getElementById('c-cantidad-stock').value);
+    const cant = parseFloat(document.getElementById('c-cantidad-stock').value);
     const costoTotal = parseFloat(document.getElementById('c-costo-total-compra').value);
     const margen = parseFloat(document.getElementById('c-margen-ganancia').value);
 
@@ -350,14 +365,20 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
         const costoUnitario = costoTotal / cant;
         const precioVentaNuevo = costoUnitario * (1 + (margen / 100));
 
+        // En granel, la "cant" son gramos. Si compró 10.000 gramos, el costoUnitario es el costo por gramo.
+        // Multiplicamos por 1000 para guardar el precio por Kilo en Firebase.
+        const guardarCosto = p.tipo === 'granel' ? (costoUnitario * 1000) : costoUnitario;
+        const guardarVenta = p.tipo === 'granel' ? (precioVentaNuevo * 1000) : precioVentaNuevo;
+
         await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { 
             stock: p.stock + cant,
-            costo: Math.ceil(costoUnitario),
-            venta: Math.ceil(precioVentaNuevo)
+            costo: Math.ceil(guardarCosto),
+            venta: Math.ceil(guardarVenta)
         });
         
+        const sufijo = p.tipo === 'granel' ? 'g.' : 'u.';
         await addDoc(collection(db, `usuarios/${currentUser.uid}/gastos`), {
-            motivo: `COMPRA: ${p.nombre} (x${cant})`,
+            motivo: `COMPRA: ${p.nombre} (${cant}${sufijo})`,
             monto: costoTotal,
             fechaStr: t.toLocaleDateString(), mes: t.getMonth(), anio: t.getFullYear(),
             hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
@@ -371,19 +392,27 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
 });
 
 function simularPrecioCompra() {
+    const pId = document.getElementById('c-producto').value;
+    const p = productos.find(x => x.id === pId);
     const cant = parseFloat(document.getElementById('c-cantidad-stock').value);
     const costoTotal = parseFloat(document.getElementById('c-costo-total-compra').value);
     const margen = parseFloat(document.getElementById('c-margen-ganancia').value);
     const display = document.getElementById('display-nuevo-precio');
 
-    if(cant > 0 && costoTotal > 0 && margen >= 0) {
+    if(p && cant > 0 && costoTotal > 0 && margen >= 0) {
         const unitario = costoTotal / cant;
         const precio = unitario * (1 + (margen/100));
-        display.innerText = `$${Math.ceil(precio).toLocaleString()}`;
+        
+        // Si es granel, mostramos el precio proyectado por 1 Kg para que el usuario entienda
+        const mostrarPrecio = p.tipo === 'granel' ? (precio * 1000) : precio;
+        const etiqueta = p.tipo === 'granel' ? ' x Kg' : '';
+        
+        display.innerText = `$${Math.ceil(mostrarPrecio).toLocaleString()} ${etiqueta}`;
     } else {
         display.innerText = "$0.00";
     }
 }
+document.getElementById('c-producto').addEventListener('change', simularPrecioCompra);
 document.getElementById('c-cantidad-stock').addEventListener('input', simularPrecioCompra);
 document.getElementById('c-costo-total-compra').addEventListener('input', simularPrecioCompra);
 document.getElementById('c-margen-ganancia').addEventListener('input', simularPrecioCompra);
@@ -402,7 +431,7 @@ document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.target.reset();
 });
 
-// --- ELIMINAR / REINICIAR MES ---
+// --- ELIMINAR / REINICIAR ---
 window.borrarP = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/productos`, id)); };
 window.borrarGasto = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, id)); };
 window.anularV = async (idVenta, idProd, cant) => {
@@ -414,7 +443,7 @@ window.anularV = async (idVenta, idProd, cant) => {
 };
 
 window.reiniciarMes = async () => {
-    const codigo = prompt("¡ATENCIÓN! Esto borrará todas las VENTAS y GASTOS de este mes. Escribí la palabra BORRAR para confirmar:");
+    const codigo = prompt("Escribí BORRAR para confirmar y vaciar las ventas/gastos del mes:");
     if (codigo === "BORRAR") {
         const t = new Date();
         const mesActual = t.getMonth();
@@ -423,17 +452,13 @@ window.reiniciarMes = async () => {
         const ventasMes = ventas.filter(v => v.mes === mesActual && v.anio === anioActual);
         const gastosMes = gastos.filter(g => g.mes === mesActual && g.anio === anioActual);
 
-        if(confirm(`Se van a eliminar ${ventasMes.length} ventas y ${gastosMes.length} gastos. El inventario y los clientes NO se borran. ¿Proceder?`)) {
-            for (const v of ventasMes) {
-                await deleteDoc(doc(db, `usuarios/${currentUser.uid}/ventas`, v.id));
-            }
-            for (const g of gastosMes) {
-                await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, g.id));
-            }
+        if(confirm(`Se eliminarán ${ventasMes.length} ventas y ${gastosMes.length} gastos. ¿Proceder?`)) {
+            for (const v of ventasMes) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/ventas`, v.id));
+            for (const g of gastosMes) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, g.id));
             alert("¡Datos del mes reiniciados correctamente!");
         }
     } else {
-        alert("Operación cancelada.");
+        alert("Cancelado.");
     }
 };
 
@@ -465,17 +490,46 @@ function actualizarSelectores() {
         selector.value = val;
     };
 
-    llenar(s, productos, (p) => `${p.nombre} ($${p.venta})`);
-    llenar(c, productos, (p) => `${p.nombre} (Stock: ${p.stock})`);
+    llenar(s, productos, (p) => {
+        const sufijo = p.tipo === 'granel' ? 'x Kg' : 'c/u';
+        return `${p.nombre} ($${p.venta} ${sufijo})`;
+    });
+    
+    llenar(c, productos, (p) => {
+        const unidad = p.tipo === 'granel' ? 'g.' : 'u.';
+        return `${p.nombre} (Stock: ${p.stock}${unidad})`;
+    });
+    
     llenar(cli, clientes, (cl) => cl.nombre);
+
+    // Cambiar placeholder de cantidad según tipo
+    if(s) {
+        s.addEventListener('change', (e) => {
+            const prod = productos.find(x => x.id === e.target.value);
+            const inputCant = document.getElementById('v-cantidad');
+            if(prod && prod.tipo === 'granel') {
+                inputCant.placeholder = "Gramos (Ej: 250)";
+            } else {
+                inputCant.placeholder = "Cant. Unidades";
+            }
+        });
+    }
 }
 
 function calcularTotal() {
     const pId = document.getElementById('v-producto').value;
     const p = productos.find(x => x.id === pId);
-    const c = document.getElementById('v-cantidad').value;
+    const c = parseFloat(document.getElementById('v-cantidad').value);
     const totalEl = document.getElementById('display-total');
-    if (totalEl) totalEl.innerText = (p && c > 0) ? `Total: $${(p.venta * c).toLocaleString()}` : "Total: $0.00";
+    
+    if (totalEl) {
+        if (p && c > 0) {
+            const total = p.tipo === 'granel' ? (p.venta / 1000) * c : p.venta * c;
+            totalEl.innerText = `Total: $${Math.ceil(total).toLocaleString()}`;
+        } else {
+            totalEl.innerText = "Total: $0.00";
+        }
+    }
 }
 
 const selectProd = document.getElementById('v-producto');
@@ -483,7 +537,7 @@ const inputCant = document.getElementById('v-cantidad');
 if(selectProd) selectProd.addEventListener('change', calcularTotal);
 if(inputCant) inputCant.addEventListener('input', calcularTotal);
 
-// --- PDF CON GANANCIA REAL ---
+// PDF
 window.descargarPDF = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -497,12 +551,10 @@ window.descargarPDF = () => {
     const totalTransf = ventasHoy.filter(v => v.pago === 'Transferencia').reduce((s, v) => s + v.total, 0);
     const totalFiado = ventasHoy.filter(v => v.pago === 'Cuenta Corriente').reduce((s, v) => s + v.total, 0);
 
-    // CÁLCULO DE GANANCIA PURA (Ventas - Costos - Gastos)
     let costoTotalMercaderiaVendida = 0;
     ventasHoy.forEach(v => {
-        // Usa el costo guardado en la venta, o si es una venta vieja, busca el producto
         const costoUnit = v.costo !== undefined ? v.costo : (productos.find(p => p.id === v.idProd)?.costo || 0);
-        costoTotalMercaderiaVendida += (costoUnit * v.cantidad);
+        costoTotalMercaderiaVendida += costoUnit;
     });
 
     const gananciaNetaPura = b.netoDia - costoTotalMercaderiaVendida;
@@ -518,7 +570,6 @@ window.descargarPDF = () => {
     doc.setDrawColor(200);
     doc.line(14, 32, 196, 32);
     
-    // Resumen de Caja y Ganancia
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text(`Ingresos Brutos en Caja: $${b.netoDia.toLocaleString()}`, 14, 42);
@@ -529,7 +580,6 @@ window.descargarPDF = () => {
     doc.text(`• Transf: $${totalTransf.toLocaleString()}`, 14, 54);
     doc.text(`(Mercadería entregada en Fiado: $${totalFiado.toLocaleString()})`, 14, 60);
     
-    // El número mágico (Ganancia Real)
     doc.setFontSize(14);
     doc.setTextColor(7, 153, 146);
     doc.text(`GANANCIA NETA REAL (Bolsillo): $${gananciaNetaPura.toLocaleString()}`, 14, 72);

@@ -73,7 +73,6 @@ td { padding: 12px 10px; border-bottom: 1px solid #f9f9f9; font-size: 0.9rem; }
 .stat-box p { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-top: 5px; }
 .btn-pdf { background: var(--text); color: white; width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; }
 
-/* SCANNER OVERLAY */
 .scanner-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.8); z-index: 2000;
