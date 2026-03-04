@@ -83,8 +83,10 @@ function render() {
             const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
             const codigoStr = p.codigo ? `<br><small style="color:#666">${p.codigo}</small>` : '';
             
-            const tipoLabel = p.tipo === 'gramos' ? 'g.' : 'u.';
-            const precioLabel = p.tipo === 'gramos' ? `/ Kg` : ``;
+            // VALIDACIÓN INTELIGENTE (Soporta productos viejos)
+            const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+            const tipoLabel = esGramos ? 'G' : 'U';
+            const precioLabel = esGramos ? `/ Kg` : ``;
 
             tbodyP.innerHTML += `
                 <tr class="${esBajo ? 'low-stock-row' : ''}">
@@ -106,7 +108,8 @@ function render() {
         tbodyV.innerHTML = '';
         [...ventas].sort((a,b) => b.timestamp - a.timestamp).slice(0, 15).forEach(v => {
             const pagoCorto = v.pago === 'Transferencia' ? 'Transf.' : v.pago;
-            const sufijo = (v.esGranel) ? 'g.' : 'u.';
+            // Mostramos G o U según si la venta fue marcada como gramos
+            const sufijo = (v.esGranel === true) ? 'G' : 'U';
             tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.cantidad}${sufijo} ${v.nombre}</td><td>${pagoCorto}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
         });
     }
@@ -315,8 +318,9 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
     if (p && p.stock >= cant) {
         const t = new Date();
         
-        const totalVenta = p.tipo === 'gramos' ? (p.venta / 1000) * cant : p.venta * cant;
-        const totalCostoParaGanancia = p.tipo === 'gramos' ? (p.costo / 1000) * cant : p.costo * cant;
+        const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+        const totalVenta = esGramos ? (p.venta / 1000) * cant : p.venta * cant;
+        const totalCostoParaGanancia = esGramos ? (p.costo / 1000) * cant : p.costo * cant;
 
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
             idProd: pId, 
@@ -324,7 +328,7 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
             total: Math.ceil(totalVenta), 
             cantidad: cant, 
             costo: Math.ceil(totalCostoParaGanancia),
-            esGranel: p.tipo === 'gramos', 
+            esGranel: esGramos, // Guardamos la bandera real
             pago: tipoPago, 
             fechaStr: t.toLocaleDateString(),
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
@@ -362,8 +366,9 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
         const costoUnitario = costoTotal / cant;
         const precioVentaNuevo = costoUnitario * (1 + (margen / 100));
 
-        const guardarCosto = p.tipo === 'gramos' ? (costoUnitario * 1000) : costoUnitario;
-        const guardarVenta = p.tipo === 'gramos' ? (precioVentaNuevo * 1000) : precioVentaNuevo;
+        const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+        const guardarCosto = esGramos ? (costoUnitario * 1000) : costoUnitario;
+        const guardarVenta = esGramos ? (precioVentaNuevo * 1000) : precioVentaNuevo;
 
         await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { 
             stock: p.stock + cant,
@@ -371,7 +376,7 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
             venta: Math.ceil(guardarVenta)
         });
         
-        const sufijo = p.tipo === 'gramos' ? 'g.' : 'u.';
+        const sufijo = esGramos ? 'G' : 'U';
         await addDoc(collection(db, `usuarios/${currentUser.uid}/gastos`), {
             motivo: `COMPRA: ${p.nombre} (${cant}${sufijo})`,
             monto: costoTotal,
@@ -398,8 +403,9 @@ function simularPrecioCompra() {
         const unitario = costoTotal / cant;
         const precio = unitario * (1 + (margen/100));
         
-        const mostrarPrecio = p.tipo === 'gramos' ? (precio * 1000) : precio;
-        const etiqueta = p.tipo === 'gramos' ? ' x Kg' : '';
+        const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+        const mostrarPrecio = esGramos ? (precio * 1000) : precio;
+        const etiqueta = esGramos ? ' x Kg' : '';
         
         display.innerText = `$${Math.ceil(mostrarPrecio).toLocaleString()}${etiqueta}`;
     } else {
@@ -485,12 +491,14 @@ function actualizarSelectores() {
     };
 
     llenar(s, productos, (p) => {
-        const sufijo = p.tipo === 'gramos' ? 'x Kg' : 'c/u';
+        const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+        const sufijo = esGramos ? 'x Kg' : 'c/u';
         return `${p.nombre} ($${p.venta} ${sufijo})`;
     });
     
     llenar(c, productos, (p) => {
-        const unidad = p.tipo === 'gramos' ? 'g.' : 'u.';
+        const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+        const unidad = esGramos ? 'G' : 'U';
         return `${p.nombre} (Stock: ${p.stock}${unidad})`;
     });
     
@@ -500,7 +508,7 @@ function actualizarSelectores() {
         s.addEventListener('change', (e) => {
             const prod = productos.find(x => x.id === e.target.value);
             const inputCant = document.getElementById('v-cantidad');
-            if(prod && prod.tipo === 'gramos') {
+            if(prod && (prod.tipo === 'gramos' || prod.tipo === 'granel')) {
                 inputCant.placeholder = "Gramos (Ej: 250)";
             } else {
                 inputCant.placeholder = "Cant. Unidades";
@@ -517,7 +525,8 @@ function calcularTotal() {
     
     if (totalEl) {
         if (p && c > 0) {
-            const total = p.tipo === 'gramos' ? (p.venta / 1000) * c : p.venta * c;
+            const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
+            const total = esGramos ? (p.venta / 1000) * c : p.venta * c;
             totalEl.innerText = `Total: $${Math.ceil(total).toLocaleString()}`;
         } else {
             totalEl.innerText = "Total: $0.00";
