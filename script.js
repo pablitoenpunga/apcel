@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBhqEcYI3pnbrx4iGq2E2QMyxbvNdP7UPw",
@@ -15,6 +15,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// --- HABILITAR MODO OFFLINE (NUEVO) ---
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn("Modo offline: Hay múltiples pestañas abiertas. Solo funciona en una a la vez.");
+    } else if (err.code == 'unimplemented') {
+        console.warn("Modo offline: Tu navegador actual no lo soporta.");
+    }
+});
 
 let currentUser = null;
 let productos = [];
@@ -83,7 +92,6 @@ function render() {
             const ganancia = p.costo > 0 ? (((p.venta - p.costo) / p.costo) * 100).toFixed(0) : 0;
             const codigoStr = p.codigo ? `<br><small style="color:#666">${p.codigo}</small>` : '';
             
-            // VALIDACIÓN INTELIGENTE (Soporta productos viejos)
             const esGramos = (p.tipo === 'gramos' || p.tipo === 'granel');
             const tipoLabel = esGramos ? 'G' : 'U';
             const precioLabel = esGramos ? `/ Kg` : ``;
@@ -108,7 +116,6 @@ function render() {
         tbodyV.innerHTML = '';
         [...ventas].sort((a,b) => b.timestamp - a.timestamp).slice(0, 15).forEach(v => {
             const pagoCorto = v.pago === 'Transferencia' ? 'Transf.' : v.pago;
-            // Mostramos G o U según si la venta fue marcada como gramos
             const sufijo = (v.esGranel === true) ? 'G' : 'U';
             tbodyV.innerHTML += `<tr><td>${v.hora}</td><td>${v.cantidad}${sufijo} ${v.nombre}</td><td>${pagoCorto}</td><td>$${v.total}</td><td><button onclick="anularV('${v.id}', '${v.idProd}', ${v.cantidad})" class="btn-del">↩</button></td></tr>`;
         });
@@ -328,7 +335,7 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
             total: Math.ceil(totalVenta), 
             cantidad: cant, 
             costo: Math.ceil(totalCostoParaGanancia),
-            esGranel: esGramos, // Guardamos la bandera real
+            esGranel: esGramos, 
             pago: tipoPago, 
             fechaStr: t.toLocaleDateString(),
             mes: t.getMonth(), anio: t.getFullYear(), hora: t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
