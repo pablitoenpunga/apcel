@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GestionYa PRO - Multisucursal</title>
+    <title>GestionYa PRO - Multisucursal Dinámica</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e3799">
     <link rel="apple-touch-icon" href="icon.png">
@@ -15,7 +15,6 @@
 </head>
 <body>
 
-    <!-- LOGIN CON LEGAJO -->
     <div id="auth-screen" class="auth-container">
         <div class="auth-card">
             <img src="icon.png" alt="Logo" class="auth-logo">
@@ -30,7 +29,6 @@
         </div>
     </div>
 
-    <!-- APP PRINCIPAL -->
     <div id="app-screen" class="main-layout" style="display: none;">
         
         <aside class="sidebar">
@@ -52,11 +50,8 @@
             <header class="top-bar">
                 <h2 id="current-tab-title">Inventario</h2>
                 
-                <!-- SELECTOR DE SUCURSAL -->
                 <div class="sucursal-selector">
                     <select id="select-sucursal" onchange="cambiarSucursal()">
-                        <option value="Local 1">🏪 Local 1 (Centro)</option>
-                        <option value="Local 2">🏪 Local 2 (Sur)</option>
                         <option value="Global">🌍 Vista Global (Todas)</option>
                     </select>
                 </div>
@@ -87,34 +82,34 @@
                                     <input type="text" id="p-codigo" placeholder="Código de Barras">
                                     <button type="button" onclick="iniciarScanner('p-codigo')" class="btn-icon">📷</button>
                                 </div>
-                                <input type="text" id="p-nombre" placeholder="Nombre (Ej: Cajón de Huevos)" required>
+                                <input type="text" id="p-nombre" placeholder="Nombre (Ej: Maple de Huevos)" required>
                                 
-                                <select id="p-tipo" required style="margin-bottom: 12px;">
+                                <select id="p-tipo" required style="margin-bottom: 12px;" onchange="toggleBulto()">
                                     <option value="unidad">Se vende por Unidad / Bulto</option>
                                     <option value="gramos">Se vende por Peso / Gramos</option>
                                 </select>
 
+                                <!-- NUEVO CAMPO: EQUIVALENCIA DE CAJÓN -->
+                                <div class="input-group" id="div-bulto" style="margin-bottom: 12px;">
+                                    <input type="number" id="p-unidades-bulto" placeholder="¿Cuántas unid. trae 1 Cajón? (Opcional, Ej: 12)" min="1">
+                                </div>
+
                                 <div class="input-group">
-                                    <input type="number" id="p-stock" placeholder="Stock Total" required>
+                                    <input type="number" id="p-stock" placeholder="Stock Total (En unidades)" required>
                                     <input type="number" id="p-minimo" placeholder="Mínimo" value="10">
                                 </div>
                                 <div class="input-group">
-                                    <input type="number" id="p-costo" placeholder="Costo $" required>
-                                    <input type="number" id="p-venta" placeholder="Venta $" required>
+                                    <input type="number" id="p-costo" placeholder="Costo Unitario $" required>
+                                    <input type="number" id="p-venta" placeholder="Venta Unitaria $" required>
                                 </div>
 
-                                <!-- OFERTAS / PROMOCIONES -->
+                                <!-- MULTI-OFERTAS DINÁMICAS -->
                                 <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e2e8f0;">
-                                    <label style="font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 5px;">
-                                        <input type="checkbox" id="p-tiene-oferta" onchange="toggleOferta()"> Tiene Promoción / Oferta Mayorista
-                                    </label>
-                                    <div id="div-oferta" style="display: none; margin-top: 10px;">
-                                        <div class="input-group">
-                                            <input type="number" id="p-oferta-cant" placeholder="Llevando X cant...">
-                                            <input type="number" id="p-oferta-precio" placeholder="Precio Total $">
-                                        </div>
-                                        <small style="color: #666;">Ej: Llevando 3 (cajones), el precio total es $10000.</small>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <label style="font-size: 0.85rem; font-weight: bold;">Promociones / Mayorista</label>
+                                        <button type="button" onclick="agregarFilaOferta()" class="btn-edit" style="padding: 5px 10px; font-size: 0.8rem;">+ Añadir Oferta</button>
                                     </div>
+                                    <div id="ofertas-container"></div>
                                 </div>
 
                                 <button type="submit" id="btn-save-prod" class="btn-primary">Guardar Producto</button>
@@ -124,7 +119,7 @@
                         <div class="card table-card">
                             <div class="scrollable">
                                 <table id="tabla-productos">
-                                    <thead><tr><th>Item</th><th>Stock</th><th>Venta</th><th>Promos</th><th>Acciones</th></tr></thead>
+                                    <thead><tr><th>Item</th><th>Stock</th><th>Venta Base</th><th>Ofertas</th><th>Acciones</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
@@ -144,16 +139,21 @@
                             
                             <form id="venta-form">
                                 <select id="v-producto" required></select>
-                                <div class="input-group">
-                                    <input type="number" id="v-cantidad" placeholder="Unid. / Gramos" value="1" required>
-                                    <select id="v-pago" onchange="verificarFiado()">
-                                        <option value="Efectivo">Efectivo</option>
-                                        <option value="Transferencia">Transferencia</option>
-                                        <option value="Cuenta Corriente">Cuenta Corriente (Fiado)</option>
-                                    </select>
+                                
+                                <!-- CONTENEDOR INTELIGENTE DE CANTIDAD -->
+                                <div class="input-group" id="v-cant-container" style="margin-bottom: 10px;">
+                                    <input type="number" id="v-cantidad" placeholder="Cantidad Total" value="1" required>
+                                    <input type="number" id="v-cajones" placeholder="Cajones / Bultos" style="display:none;" min="0">
+                                    <input type="number" id="v-sueltas" placeholder="Unid. Sueltas" style="display:none;" min="0">
                                 </div>
                                 
-                                <div id="div-cliente-fiado" style="display: none;">
+                                <select id="v-pago" onchange="verificarFiado()" style="margin-bottom: 10px;">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Cuenta Corriente">Cuenta Corriente (Fiado)</option>
+                                </select>
+                                
+                                <div id="div-cliente-fiado" style="display: none; margin-bottom: 10px;">
                                     <select id="v-cliente"><option value="">Seleccione Cliente...</option></select>
                                 </div>
 
@@ -205,7 +205,7 @@
                                     <input type="number" id="c-margen-ganancia" placeholder="% Ganancia deseada" required>
                                 </div>
                                 <div class="total-container" style="background-color: #e3f2fd; border-color: #2196f3;">
-                                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Nuevo Precio Sugerido:</p>
+                                    <p style="font-size: 0.8rem; margin-bottom: 5px;">Nuevo Precio Sugerido (Unidad/Kg):</p>
                                     <span id="display-nuevo-precio" style="font-size: 1.3rem; font-weight: 800; color: #1565c0;">$0.00</span>
                                 </div>
                                 <button type="submit" id="btn-save-compra" class="btn-info">Registrar Compra</button>
@@ -234,7 +234,7 @@
                     </div>
                 </section>
 
-                <!-- REPORTES Y ARQUEO -->
+                <!-- REPORTES, SUCURSALES Y ARQUEO -->
                 <section id="tab-informes" class="tab-panel">
                     <div class="grid-container">
                         <div class="card report-card large">
@@ -242,14 +242,23 @@
                                 <div class="stat-box"><h4>Caja Diaria</h4><p id="stat-dia">$0</p></div>
                                 <div class="stat-box"><h4>Caja Mensual</h4><p id="stat-mes">$0</p></div>
                             </div>
-                            <button onclick="descargarPDF()" class="btn-pdf" style="margin-bottom: 15px;">Descargar Cierre Diario (PDF)</button>
+                            <button onclick="descargarPDF()" class="btn-pdf" style="margin-bottom: 15px;">Descargar Cierre (PDF)</button>
                             <button onclick="reiniciarMes()" class="btn-del" style="width: 100%; padding: 15px; border-radius: 12px; font-weight: bold;">⚠️ Reiniciar Datos de esta Sucursal</button>
                         </div>
                         
-                        <!-- ARQUEO DE CAJA (CONTADOR DE BILLETES) -->
                         <div class="card form-card">
-                            <h3>Arqueo de Billetes (Efectivo)</h3>
-                            <p style="font-size: 0.8rem; color: #666; margin-bottom: 15px;">Contá cuántos billetes tenés de cada uno.</p>
+                            <h3>Gestor de Sucursales</h3>
+                            <form id="sucursal-form" style="display:flex; gap:10px; margin-bottom: 15px;">
+                                <input type="text" id="s-nombre" placeholder="Nombre (Ej: Local Sur)" required style="margin-bottom:0;">
+                                <button type="submit" class="btn-primary" style="width: auto;">Crear</button>
+                            </form>
+                            <table id="tabla-sucursales">
+                                <tbody></tbody>
+                            </table>
+                        </div>
+
+                        <div class="card form-card">
+                            <h3>Arqueo de Billetes</h3>
                             <div class="arqueo-grid">
                                 <div class="arq-row"><label>$10.000</label><input type="number" id="b-10000" class="arq-input" min="0" oninput="calcularArqueo()"></div>
                                 <div class="arq-row"><label>$2.000</label><input type="number" id="b-2000" class="arq-input" min="0" oninput="calcularArqueo()"></div>
@@ -259,7 +268,6 @@
                                 <div class="arq-row"><label>$100</label><input type="number" id="b-100" class="arq-input" min="0" oninput="calcularArqueo()"></div>
                             </div>
                             <div class="total-container" style="background-color: #e3f9e5; border-color: #2ecc71; margin-top: 15px;">
-                                <p style="font-size: 0.9rem; font-weight: bold;">Efectivo Contado:</p>
                                 <span id="arq-total" style="font-size: 1.5rem; font-weight: 800; color: #27ae60;">$0</span>
                             </div>
                         </div>

@@ -23,10 +23,10 @@ let productosGlobal = [];
 let ventasGlobal = [];
 let gastosGlobal = [];
 let clientesGlobal = [];
+let sucursalesGlobal = []; 
 let editandoId = null;
 let html5QrCode = null;
 
-// Obtenemos la sucursal activa del selector
 const getSucursal = () => document.getElementById('select-sucursal').value;
 
 onAuthStateChanged(auth, (user) => {
@@ -34,7 +34,6 @@ onAuthStateChanged(auth, (user) => {
         currentUser = user;
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-screen').style.display = 'flex';
-        // Mostramos el Legajo extrayéndolo del mail falso
         document.getElementById('user-display').innerText = `Legajo: ${user.email.split('@')[0]}`;
         vincularBaseDeDatos();
     } else {
@@ -44,46 +43,68 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// LOGICA DE LEGAJO
 document.getElementById('login-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    const legajo = document.getElementById('login-legajo').value;
+    const legajo = document.getElementById('login-legajo').value.replace(/\s+/g, '');
     const pass = document.getElementById('login-pass').value;
-    const email = `${legajo}@gestionya.com`; // Transformamos el legajo en mail invisible
-    signInWithEmailAndPassword(auth, email, pass).catch(err => alert("Error: Verificá tu legajo y contraseña."));
+    signInWithEmailAndPassword(auth, `${legajo}@gestionya.com`, pass).catch(err => {
+        console.error("Error Auth:", err);
+        if (err.code === 'auth/unauthorized-domain') alert("Firebase bloquea este dominio. Agregalo en Auth Settings.");
+        else alert("Legajo o contraseña incorrectos.");
+    });
 });
 
 document.getElementById('btn-register').addEventListener('click', () => {
-    const legajo = document.getElementById('login-legajo').value;
+    const legajo = document.getElementById('login-legajo').value.replace(/\s+/g, '');
     const pass = document.getElementById('login-pass').value;
     if (pass.length < 6) return alert("Mínimo 6 caracteres.");
-    const email = `${legajo}@gestionya.com`;
-    createUserWithEmailAndPassword(auth, email, pass).catch(err => alert("Error: " + err.message));
+    createUserWithEmailAndPassword(auth, `${legajo}@gestionya.com`, pass).catch(err => alert("Error: " + err.message));
 });
 
 window.cerrarSesion = () => signOut(auth);
 
 function vincularBaseDeDatos() {
     const path = `usuarios/${currentUser.uid}`;
-    onSnapshot(collection(db, path, "productos"), (snap) => {
-        productosGlobal = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        render();
+    onSnapshot(collection(db, path, "sucursales"), (snap) => { 
+        sucursalesGlobal = snap.docs.map(d => ({id: d.id, ...d.data()})); 
+        actualizarSelectoresSucursal(); 
     });
-    onSnapshot(collection(db, path, "ventas"), (snap) => {
-        ventasGlobal = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        render();
-    });
-    onSnapshot(collection(db, path, "gastos"), (snap) => {
-        gastosGlobal = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        render();
-    });
-    onSnapshot(collection(db, path, "clientes"), (snap) => {
-        clientesGlobal = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        render();
-    });
+    onSnapshot(collection(db, path, "productos"), (snap) => { productosGlobal = snap.docs.map(d => ({id: d.id, ...d.data()})); render(); });
+    onSnapshot(collection(db, path, "ventas"), (snap) => { ventasGlobal = snap.docs.map(d => ({id: d.id, ...d.data()})); render(); });
+    onSnapshot(collection(db, path, "gastos"), (snap) => { gastosGlobal = snap.docs.map(d => ({id: d.id, ...d.data()})); render(); });
+    onSnapshot(collection(db, path, "clientes"), (snap) => { clientesGlobal = snap.docs.map(d => ({id: d.id, ...d.data()})); render(); });
 }
 
-// MULTISUCURSAL: Bloquear formularios si estamos en "Global"
+function actualizarSelectoresSucursal() {
+    const selector = document.getElementById('select-sucursal');
+    const valorPrevio = selector.value;
+    selector.innerHTML = '<option value="Global">🌍 Vista Global (Todas)</option>';
+    
+    sucursalesGlobal.sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(s => {
+        selector.innerHTML += `<option value="${s.nombre}">🏪 ${s.nombre}</option>`;
+    });
+    
+    if(sucursalesGlobal.some(s => s.nombre === valorPrevio)) selector.value = valorPrevio;
+
+    const tbodyS = document.querySelector('#tabla-sucursales tbody');
+    if(tbodyS) {
+        tbodyS.innerHTML = '';
+        sucursalesGlobal.forEach(s => {
+            tbodyS.innerHTML += `<tr><td>${s.nombre}</td><td style="text-align:right;"><button onclick="borrarSucursal('${s.id}')" class="btn-del">X</button></td></tr>`;
+        });
+    }
+}
+
+document.getElementById('sucursal-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nombre = document.getElementById('s-nombre').value;
+    if(sucursalesGlobal.some(s => s.nombre.toLowerCase() === nombre.toLowerCase())) return alert("Esa sucursal ya existe.");
+    await addDoc(collection(db, `usuarios/${currentUser.uid}/sucursales`), { nombre });
+    e.target.reset();
+});
+
+window.borrarSucursal = async (id) => { if(confirm("¿Borrar sucursal?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/sucursales`, id)); };
+
 window.cambiarSucursal = () => {
     const suc = getSucursal();
     const esGlobal = (suc === 'Global');
@@ -93,18 +114,22 @@ window.cambiarSucursal = () => {
     document.getElementById('btn-save-compra').disabled = esGlobal;
     document.getElementById('btn-save-gasto').disabled = esGlobal;
     
-    if(esGlobal) alert("Estás en Vista Global. Podés ver los reportes y stock general, pero no podés vender ni modificar productos. Elegí un Local para operar.");
+    if(esGlobal) alert("Estás en Vista Global. Podés ver reportes y stock general, pero no operar.");
     render();
+};
+
+// UI TIPO BULTO / GRAMOS
+window.toggleBulto = () => {
+    const tipo = document.getElementById('p-tipo').value;
+    document.getElementById('div-bulto').style.display = tipo === 'unidad' ? 'flex' : 'none';
 };
 
 function render() {
     const sucursal = getSucursal();
-    
-    // Filtramos los datos según la sucursal (Si es Global, mostramos todo)
     const productos = sucursal === 'Global' ? productosGlobal : productosGlobal.filter(p => p.sucursal === sucursal);
     const ventas = sucursal === 'Global' ? ventasGlobal : ventasGlobal.filter(v => v.sucursal === sucursal);
     const gastos = sucursal === 'Global' ? gastosGlobal : gastosGlobal.filter(g => g.sucursal === sucursal);
-    const clientes = clientesGlobal; // Los clientes son compartidos entre locales
+    const clientes = clientesGlobal; 
 
     const tbodyP = document.querySelector('#tabla-productos tbody');
     if(tbodyP) {
@@ -114,10 +139,11 @@ function render() {
             const esGramos = (p.tipo === 'gramos');
             const tipoLabel = esGramos ? 'G' : 'U';
             
-            // Etiqueta de Promo si existe
-            let promoBadge = "";
-            if(p.ofertaCant && p.ofertaPrecio) {
-                promoBadge = `<br><span class="badge-promo">${p.ofertaCant}x$${p.ofertaPrecio}</span>`;
+            let promoBadges = "";
+            if (p.ofertas && p.ofertas.length > 0) {
+                p.ofertas.sort((a,b)=>b.cant - a.cant).forEach(off => {
+                    promoBadges += `<span class="badge-promo">${off.cant}x$${off.precio}</span> `;
+                });
             }
 
             tbodyP.innerHTML += `
@@ -125,7 +151,7 @@ function render() {
                     <td>${p.nombre} ${esBajo ? '⚠️' : ''} <small style="color:#888">(${p.sucursal})</small></td>
                     <td>${p.stock} ${tipoLabel}</td>
                     <td>$${p.venta}</td>
-                    <td>${promoBadge}</td>
+                    <td>${promoBadges}</td>
                     <td>
                         <button onclick="editarP('${p.id}')" class="btn-edit" ${sucursal === 'Global' ? 'disabled' : ''}>✏️</button>
                         <button onclick="borrarP('${p.id}')" class="btn-del" ${sucursal === 'Global' ? 'disabled' : ''}>🗑️</button>
@@ -160,9 +186,7 @@ function render() {
                 <tr>
                     <td>${c.nombre}</td>
                     <td style="${deudaStyle}">$${c.deuda || 0}</td>
-                    <td>
-                        <button onclick="pagarDeuda('${c.id}', ${c.deuda})" class="btn-pay">💵</button>
-                    </td>
+                    <td><button onclick="pagarDeuda('${c.id}', ${c.deuda})" class="btn-pay">💵</button></td>
                 </tr>`;
         });
     }
@@ -178,7 +202,6 @@ function actualizarDashboard(ventasLocales, gastosLocales) {
     const anio = ahora.getFullYear();
 
     const ventasReales = ventasLocales.filter(v => v.pago !== 'Cuenta Corriente');
-
     const vDia = ventasReales.filter(v => v.fechaStr === hoyStr).reduce((s, v) => s + v.total, 0);
     const gDia = gastosLocales.filter(g => g.fechaStr === hoyStr).reduce((s, g) => s + g.monto, 0);
     const vMes = ventasReales.filter(v => v.mes === mes && v.anio === anio).reduce((s, v) => s + v.total, 0);
@@ -192,42 +215,51 @@ function actualizarDashboard(ventasLocales, gastosLocales) {
     return { netoDia: vDia - gDia, netoMes: vMes - gMes, ventasHoy: ventasLocales.filter(v => v.fechaStr === hoyStr) };
 }
 
-// ARQUEO DE CAJA
 window.calcularArqueo = () => {
-    const b10000 = (parseInt(document.getElementById('b-10000').value) || 0) * 10000;
-    const b2000 = (parseInt(document.getElementById('b-2000').value) || 0) * 2000;
-    const b1000 = (parseInt(document.getElementById('b-1000').value) || 0) * 1000;
-    const b500 = (parseInt(document.getElementById('b-500').value) || 0) * 500;
-    const b200 = (parseInt(document.getElementById('b-200').value) || 0) * 200;
-    const b100 = (parseInt(document.getElementById('b-100').value) || 0) * 100;
-    
-    const total = b10000 + b2000 + b1000 + b500 + b200 + b100;
+    const total = 
+        ((parseInt(document.getElementById('b-10000').value) || 0) * 10000) +
+        ((parseInt(document.getElementById('b-2000').value) || 0) * 2000) +
+        ((parseInt(document.getElementById('b-1000').value) || 0) * 1000) +
+        ((parseInt(document.getElementById('b-500').value) || 0) * 500) +
+        ((parseInt(document.getElementById('b-200').value) || 0) * 200) +
+        ((parseInt(document.getElementById('b-100').value) || 0) * 100);
     document.getElementById('arq-total').innerText = `$${total.toLocaleString()}`;
 };
 
-// OFERTAS CHECKBOX
-window.toggleOferta = () => {
-    const isChecked = document.getElementById('p-tiene-oferta').checked;
-    document.getElementById('div-oferta').style.display = isChecked ? 'block' : 'none';
+window.agregarFilaOferta = (cant = '', precio = '') => {
+    const div = document.createElement('div');
+    div.className = 'oferta-row';
+    div.innerHTML = `
+        <input type="number" placeholder="Llevando (ej: 12)" value="${cant}" class="input-oferta-cant" required>
+        <input type="number" placeholder="Total a cobrar $" value="${precio}" class="input-oferta-precio" required>
+        <button type="button" class="btn-del" onclick="this.parentElement.remove()">X</button>
+    `;
+    document.getElementById('ofertas-container').appendChild(div);
 };
 
-// --- PRODUCTOS ---
 document.getElementById('prod-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if(getSucursal() === 'Global') return;
 
+    const filasOfertas = document.querySelectorAll('.oferta-row');
+    let ofertasArreglo = [];
+    filasOfertas.forEach(fila => {
+        const c = parseInt(fila.querySelector('.input-oferta-cant').value);
+        const p = parseFloat(fila.querySelector('.input-oferta-precio').value);
+        if(c > 0 && p > 0) ofertasArreglo.push({ cant: c, precio: p });
+    });
+
     const data = {
-        sucursal: getSucursal(), // Agregamos la sucursal
+        sucursal: getSucursal(), 
         codigo: document.getElementById('p-codigo').value || "",
         nombre: document.getElementById('p-nombre').value,
         tipo: document.getElementById('p-tipo').value || "unidad",
+        unidadesPorBulto: parseInt(document.getElementById('p-unidades-bulto').value) || 1, // GUARDAMOS EL CAJÓN
         stock: parseInt(document.getElementById('p-stock').value) || 0,
         minimo: parseInt(document.getElementById('p-minimo').value) || 0,
         costo: parseFloat(document.getElementById('p-costo').value) || 0,
         venta: parseFloat(document.getElementById('p-venta').value) || 0,
-        // Guardar ofertas si el checkbox está activo
-        ofertaCant: document.getElementById('p-tiene-oferta').checked ? parseInt(document.getElementById('p-oferta-cant').value) : null,
-        ofertaPrecio: document.getElementById('p-tiene-oferta').checked ? parseFloat(document.getElementById('p-oferta-precio').value) : null
+        ofertas: ofertasArreglo 
     };
 
     if (editandoId) {
@@ -238,42 +270,107 @@ document.getElementById('prod-form').addEventListener('submit', async (e) => {
         await addDoc(collection(db, `usuarios/${currentUser.uid}/productos`), data);
         alert("Producto registrado en " + getSucursal());
         e.target.reset();
-        document.getElementById('div-oferta').style.display = 'none';
+        document.getElementById('ofertas-container').innerHTML = '';
+        window.toggleBulto();
     }
 });
 
-// --- VENTAS CON LÓGICA DE OFERTAS ---
+window.editarP = (id) => {
+    const p = productosGlobal.find(x => x.id === id);
+    if(p) {
+        document.getElementById('p-codigo').value = p.codigo || "";
+        document.getElementById('p-nombre').value = p.nombre;
+        document.getElementById('p-tipo').value = p.tipo || "unidad";
+        document.getElementById('p-unidades-bulto').value = p.unidadesPorBulto || 1;
+        document.getElementById('p-stock').value = p.stock;
+        document.getElementById('p-minimo').value = p.minimo;
+        document.getElementById('p-costo').value = p.costo;
+        document.getElementById('p-venta').value = p.venta;
+        
+        document.getElementById('ofertas-container').innerHTML = '';
+        if(p.ofertas) p.ofertas.forEach(off => window.agregarFilaOferta(off.cant, off.precio));
+
+        window.toggleBulto();
+        editandoId = id;
+        document.getElementById('btn-save-prod').innerText = "Actualizar Producto";
+        document.getElementById('btn-cancel-edit').style.display = "block";
+        document.getElementById('prod-form').scrollIntoView({ behavior: 'smooth' });
+        showTab('tab-productos');
+    }
+};
+
+window.cancelarEdicion = () => {
+    editandoId = null;
+    document.getElementById('prod-form').reset();
+    document.getElementById('ofertas-container').innerHTML = '';
+    document.getElementById('btn-save-prod').innerText = "Guardar Producto";
+    document.getElementById('btn-cancel-edit').style.display = "none";
+    window.toggleBulto();
+};
+
+// --- CÁLCULO DE VENTA (EL CEREBRO DE LOS BULTOS) ---
+function getCantidadTotalIngresada(p) {
+    if (!p) return 0;
+    if (p.tipo !== 'gramos' && p.unidadesPorBulto > 1) {
+        // Multiplica solo y suma las unidades sueltas
+        const cajones = parseFloat(document.getElementById('v-cajones').value) || 0;
+        const sueltas = parseFloat(document.getElementById('v-sueltas').value) || 0;
+        return (cajones * p.unidadesPorBulto) + sueltas;
+    }
+    return parseFloat(document.getElementById('v-cantidad').value) || 0;
+}
+
+function evaluarVenta(p, cantComprada) {
+    const esGramos = (p.tipo === 'gramos');
+    let total = 0;
+    
+    if (esGramos) {
+        total = (p.venta / 1000) * cantComprada;
+        return { total, esPromo: false };
+    }
+
+    let cantidadRestante = cantComprada;
+    let aplicoPromo = false;
+
+    if (p.ofertas && p.ofertas.length > 0) {
+        const ofertasOrdenadas = [...p.ofertas].sort((a,b) => b.cant - a.cant);
+        ofertasOrdenadas.forEach(off => {
+            if (cantidadRestante >= off.cant) {
+                const promosEnteras = Math.floor(cantidadRestante / off.cant);
+                total += promosEnteras * off.precio; 
+                cantidadRestante = cantidadRestante % off.cant; 
+                aplicoPromo = true;
+            }
+        });
+    }
+    total += cantidadRestante * p.venta;
+    return { total, esPromo: aplicoPromo };
+}
+
 document.getElementById('venta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if(getSucursal() === 'Global') return;
 
     const pId = document.getElementById('v-producto').value;
     const p = productosGlobal.find(x => x.id === pId);
-    const cant = parseFloat(document.getElementById('v-cantidad').value);
+    const cantFinal = getCantidadTotalIngresada(p);
     const tipoPago = document.getElementById('v-pago').value;
     const clienteId = document.getElementById('v-cliente').value;
 
-    if (p && p.stock >= cant) {
+    if (p && cantFinal > 0 && p.stock >= cantFinal) {
         const t = new Date();
         const esGramos = (p.tipo === 'gramos');
         
-        // MATEMÁTICA DE VENTA NORMAL
-        let totalVenta = esGramos ? (p.venta / 1000) * cant : p.venta * cant;
-        let totalCostoParaGanancia = esGramos ? (p.costo / 1000) * cant : p.costo * cant;
-
-        // MATEMÁTICA DE OFERTAS (Si lleva la cantidad necesaria, aplicamos la promo)
-        if (!esGramos && p.ofertaCant && p.ofertaPrecio && cant >= p.ofertaCant) {
-            const cantPromos = Math.floor(cant / p.ofertaCant); // Cuántas promociones enteras lleva (Ej: lleva 7, promo es 3. Lleva 2 promos)
-            const cantSueltos = cant % p.ofertaCant; // Cuántos sueltos le quedan (Ej: 1)
-            totalVenta = (cantPromos * p.ofertaPrecio) + (cantSueltos * p.venta);
-        }
+        const result = evaluarVenta(p, cantFinal);
+        const totalVenta = result.total;
+        let totalCostoParaGanancia = esGramos ? (p.costo / 1000) * cantFinal : p.costo * cantFinal;
 
         await addDoc(collection(db, `usuarios/${currentUser.uid}/ventas`), {
-            sucursal: getSucursal(), // Se registra en la sucursal actual
+            sucursal: getSucursal(), 
             idProd: pId, 
             nombre: p.nombre, 
             total: Math.ceil(totalVenta), 
-            cantidad: cant, 
+            cantidad: cantFinal, 
             costo: Math.ceil(totalCostoParaGanancia),
             esGranel: esGramos, 
             pago: tipoPago, 
@@ -282,7 +379,7 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
             timestamp: Date.now()
         });
 
-        await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { stock: p.stock - cant });
+        await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, pId), { stock: p.stock - cantFinal });
 
         if(tipoPago === 'Cuenta Corriente' && clienteId) {
             const cli = clientesGlobal.find(c => c.id === clienteId);
@@ -291,39 +388,36 @@ document.getElementById('venta-form').addEventListener('submit', async (e) => {
 
         e.target.reset();
         document.getElementById('display-total').innerText = "Total: $0.00";
-        verificarFiado(); 
-    } else { alert("Stock insuficiente o inválido"); }
+        verificarFiado();
+        document.getElementById('v-producto').dispatchEvent(new Event('change')); // Resetea las cajitas
+    } else { alert("Stock insuficiente o no ingresaste cantidad"); }
 });
 
 function calcularTotal() {
     const pId = document.getElementById('v-producto').value;
     const p = productosGlobal.find(x => x.id === pId);
-    const c = parseFloat(document.getElementById('v-cantidad').value);
+    const c = getCantidadTotalIngresada(p);
     const totalEl = document.getElementById('display-total');
     
     if (totalEl) {
         if (p && c > 0) {
-            const esGramos = (p.tipo === 'gramos');
-            let total = esGramos ? (p.venta / 1000) * c : p.venta * c;
-            
-            // Mostrar la promo en vivo en el cajero
-            if (!esGramos && p.ofertaCant && p.ofertaPrecio && c >= p.ofertaCant) {
-                const cantPromos = Math.floor(c / p.ofertaCant);
-                const cantSueltos = c % p.ofertaCant;
-                total = (cantPromos * p.ofertaPrecio) + (cantSueltos * p.venta);
-                totalEl.innerHTML = `Total: $${Math.ceil(total).toLocaleString()} <br><small style="color:#d35400">¡Promo Aplicada!</small>`;
+            const res = evaluarVenta(p, c);
+            if (res.esPromo) {
+                totalEl.innerHTML = `Total: $${Math.ceil(res.total).toLocaleString()} <br><small style="color:#d35400">¡Promo Aplicada!</small>`;
             } else {
-                totalEl.innerText = `Total: $${Math.ceil(total).toLocaleString()}`;
+                totalEl.innerText = `Total: $${Math.ceil(res.total).toLocaleString()}`;
             }
         } else {
             totalEl.innerText = "Total: $0.00";
         }
     }
 }
+
 document.getElementById('v-producto').addEventListener('change', calcularTotal);
 document.getElementById('v-cantidad').addEventListener('input', calcularTotal);
+document.getElementById('v-cajones').addEventListener('input', calcularTotal);
+document.getElementById('v-sueltas').addEventListener('input', calcularTotal);
 
-// --- COMPRAS ---
 document.getElementById('compra-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if(getSucursal() === 'Global') return;
@@ -362,7 +456,6 @@ document.getElementById('compra-form').addEventListener('submit', async (e) => {
     }
 });
 
-// --- GASTOS ---
 document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if(getSucursal() === 'Global') return;
@@ -378,7 +471,6 @@ document.getElementById('gasto-form').addEventListener('submit', async (e) => {
     e.target.reset();
 });
 
-// ESCANER
 window.iniciarScanner = (targetInputId) => {
     document.getElementById('scanner-container').style.display = 'flex';
     html5QrCode = new Html5Qrcode("reader");
@@ -387,14 +479,13 @@ window.iniciarScanner = (targetInputId) => {
             document.getElementById(targetInputId).value = decodedText;
             if(targetInputId === 'scan-venta') {
                 const p = productosGlobal.filter(x => x.sucursal === getSucursal()).find(x => x.codigo === decodedText);
-                if(p) { document.getElementById('v-producto').value = p.id; calcularTotal(); document.getElementById('v-cantidad').focus(); }
+                if(p) { document.getElementById('v-producto').value = p.id; document.getElementById('v-producto').dispatchEvent(new Event('change')); }
             }
             cerrarScanner();
         }, (errorMessage) => {}).catch(err => { alert("Error cámara"); });
 };
 window.cerrarScanner = () => { if(html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('scanner-container').style.display = 'none'; html5QrCode.clear(); }); } else { document.getElementById('scanner-container').style.display = 'none'; } };
 
-// NAVEGACION Y SELECTORES
 window.showTab = (id) => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -402,6 +493,7 @@ window.showTab = (id) => {
     document.querySelectorAll('.nav-item').forEach(btn => { if(btn.getAttribute('onclick').includes(id)) btn.classList.add('active'); });
 };
 
+// UI DINÁMICA DE VENTAS (Muestra cajas según el tipo de producto)
 function actualizarSelectores(prodsLocal) {
     const s = document.getElementById('v-producto');
     const c = document.getElementById('c-producto'); 
@@ -411,6 +503,31 @@ function actualizarSelectores(prodsLocal) {
         const val = s.value; s.innerHTML = '<option value="">Seleccione...</option>';
         prodsLocal.forEach(p => s.innerHTML += `<option value="${p.id}">${p.nombre} ($${p.venta})</option>`);
         s.value = val;
+        
+        // El evento que cambia las cajitas de input
+        s.onchange = (e) => {
+            const prod = prodsLocal.find(x => x.id === e.target.value);
+            const iCant = document.getElementById('v-cantidad');
+            const iCaj = document.getElementById('v-cajones');
+            const iSue = document.getElementById('v-sueltas');
+            
+            if(prod) {
+                if(prod.tipo === 'gramos') {
+                    iCant.style.display = 'block'; iCant.placeholder = "Gramos (Ej: 250)"; iCant.required = true;
+                    iCaj.style.display = 'none'; iCaj.required = false; iCaj.value = '';
+                    iSue.style.display = 'none'; iSue.required = false; iSue.value = '';
+                } else if (prod.unidadesPorBulto > 1) {
+                    // Si trae más de 1 unidad por cajón, mostramos la calculadora mágica
+                    iCant.style.display = 'none'; iCant.required = false; iCant.value = '';
+                    iCaj.style.display = 'block'; iCaj.required = true; iCaj.placeholder = `Cajones (de ${prod.unidadesPorBulto}u)`;
+                    iSue.style.display = 'block'; iSue.required = true;
+                } else {
+                    iCant.style.display = 'block'; iCant.placeholder = "Cant. Unidades"; iCant.required = true;
+                    iCaj.style.display = 'none'; iCaj.required = false; iCaj.value = '';
+                    iSue.style.display = 'none'; iSue.required = false; iSue.value = '';
+                }
+            }
+        };
     }
     if(c) {
         const val = c.value; c.innerHTML = '<option value="">Seleccione...</option>';
@@ -424,7 +541,6 @@ function actualizarSelectores(prodsLocal) {
     }
 }
 
-// RESTO DE FUNCIONES (BORRAR, PDF, CLIENTES) QUEDAN INTACTAS
 window.borrarP = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/productos`, id)); };
 window.borrarGasto = async (id) => { if(confirm("¿Eliminar?")) await deleteDoc(doc(db, `usuarios/${currentUser.uid}/gastos`, id)); };
 window.anularV = async (idVenta, idProd, cant) => { if(confirm("¿Anular?")) { await deleteDoc(doc(db, `usuarios/${currentUser.uid}/ventas`, idVenta)); const p = productosGlobal.find(x => x.id === idProd); if(p) await updateDoc(doc(db, `usuarios/${currentUser.uid}/productos`, idProd), { stock: p.stock + cant }); } };
